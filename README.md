@@ -8,7 +8,7 @@ AI Trust Cockpit is a React + Vite + Tailwind + Convex MVP for evaluating AI-gen
 4. The Eval Engine scores correctness, robustness, security, performance, and code quality.
 5. A repair iteration patches the code and reruns the evaluation.
 
-The seeded demo path is intentionally opinionated: it shows a guaranteed fail-then-improve run with staged hardening, so the committee can watch the trust loop work across multiple iterations instead of one magic fix. Custom prompt and code runs can use OpenAI-backed Maker and Red Team stages when `OPENAI_API_KEY` is configured in Convex.
+Prompt and code runs can use OpenAI-backed Maker and Red Team stages when `OPENAI_API_KEY` is configured in Convex, while deterministic fallback remains available if the backend key is missing.
 
 ## Stack
 
@@ -34,7 +34,7 @@ npm run dev:backend
 
 The first `convex dev` run will prompt you to create or select a deployment. Per the current Convex docs, it writes the development URL to `.env.local` as `VITE_CONVEX_URL`.
 
-If you want OpenAI-backed Maker and Red Team stages for non-demo runs, set the secret in Convex before starting the dev loop:
+If you want OpenAI-backed Maker and Red Team stages, set the secret in Convex before starting the dev loop:
 
 ```bash
 npx convex env set OPENAI_API_KEY your_openai_api_key
@@ -58,14 +58,14 @@ Start the frontend in another terminal:
 npm run dev
 ```
 
-Open the app and use `Load seeded demo` to create the guaranteed trust-loop run.
+Open the app and create a `Prompt` or `Code` run to trigger the trust loop.
 
 Important: a key stored only in the repo's `.env.local` does not automatically reach Convex actions. `.env.local` is where `convex dev` writes `VITE_CONVEX_URL` for the frontend. The backend OpenAI key must be stored with `npx convex env set ...`.
 
 ## What works
 
 - Dashboard with live run list, status, score, iteration, pass/fail, and timestamp
-- New Run flow for prompt, code, or seeded demo runs
+- New Run flow for prompt and code runs
 - Run detail cockpit with:
   - original prompt/code
   - generated versions

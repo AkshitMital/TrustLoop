@@ -4,20 +4,10 @@ import { api } from '../../convex/_generated/api'
 import { EmptyState } from '../components/empty-state'
 import { RunCard } from '../components/run-card'
 import { SectionCard } from '../components/section-card'
-import { useRunLauncher } from '../hooks/use-run-launcher'
 import type { RunListItem } from '../types/app'
 
 export function DashboardPage() {
   const runs = useQuery(api.runs.listRuns, {}) as RunListItem[] | undefined
-  const { launchRun, isLaunching } = useRunLauncher()
-
-  async function launchSeededDemo() {
-    await launchRun({
-      title: 'Seeded sanitize input demo',
-      sourceType: 'demo',
-      sourceText: 'Build a sanitizeUserInput helper for profile fields.',
-    })
-  }
 
   return (
     <div className="space-y-6">
@@ -26,17 +16,9 @@ export function DashboardPage() {
         eyebrow="Home / Dashboard"
         aside={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void launchSeededDemo()}
-              disabled={isLaunching}
-              className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[#ffb066] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isLaunching ? 'Launching…' : 'Load seeded demo'}
-            </button>
             <Link
               to="/runs/new"
-              className="rounded-full border border-white/12 px-4 py-2 text-sm text-white transition hover:bg-white/6"
+              className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[#ffb066] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105"
             >
               New Run
             </Link>
@@ -82,16 +64,14 @@ export function DashboardPage() {
       ) : runs.length === 0 ? (
         <EmptyState
           title="No trust runs yet"
-          body="Create a custom run or load the seeded sanitize-input demo to get the full fail-then-improve loop on screen immediately."
+          body="Create a prompt or code run to watch the Maker, Red Team, evaluator, and repair loop harden the result in Convex."
           action={
-            <button
-              type="button"
-              onClick={() => void launchSeededDemo()}
-              disabled={isLaunching}
-              className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[#ffb066] px-5 py-2.5 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+            <Link
+              to="/runs/new"
+              className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[#ffb066] px-5 py-2.5 text-sm font-medium text-slate-950 transition hover:brightness-105"
             >
-              {isLaunching ? 'Launching…' : 'Load seeded demo'}
-            </button>
+              Create a run
+            </Link>
           }
         />
       ) : (
