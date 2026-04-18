@@ -14,7 +14,11 @@ import { StageFeed } from '../components/stage-feed'
 import { StatusBadge } from '../components/status-badge'
 import {
   formatDelta,
+  formatGitHubFileStats,
+  formatGitHubRefLabel,
+  formatGitHubRepoLabel,
   formatTimestamp,
+  humanizeGitHubSourceKind,
   humanizeSourceType,
   humanizeStatus,
   truncate,
@@ -143,7 +147,7 @@ export function RunDetailPage() {
     detail.currentEval?.overallScore,
     detail.previousEval?.overallScore,
   )
-  const sourceIsCode = detail.run.sourceType === 'code'
+  const sourceIsCode = detail.run.sourceType === 'code' || detail.run.sourceType === 'github'
   const showingBestVersion =
     detail.run.passFail !== 'pending' &&
     latestIterationNumber !== detail.run.currentVersionNumber
@@ -249,9 +253,70 @@ export function RunDetailPage() {
             busy={leftPanelBusy}
           >
             <div className="space-y-4">
+              {detail.run.githubContext ? (
+                <div className="rounded-2xl bg-white/[0.04] p-4">
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.25em] text-slate-500">
+                    GitHub source
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-black/20 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                        Repo
+                      </p>
+                      <p className="mt-2 text-sm text-slate-200">
+                        {formatGitHubRepoLabel(detail.run.githubContext)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-black/20 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                        Source kind
+                      </p>
+                      <p className="mt-2 text-sm text-slate-200">
+                        {humanizeGitHubSourceKind(detail.run.githubContext.sourceKind)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-black/20 px-4 py-3 sm:col-span-2">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                        File path
+                      </p>
+                      <p className="mt-2 break-words text-sm text-slate-200">
+                        {detail.run.githubContext.filePath}
+                      </p>
+                    </div>
+                    {formatGitHubRefLabel(detail.run.githubContext) ? (
+                      <div className="rounded-2xl bg-black/20 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                          Ref
+                        </p>
+                        <p className="mt-2 text-sm text-slate-200">
+                          {formatGitHubRefLabel(detail.run.githubContext)}
+                        </p>
+                      </div>
+                    ) : null}
+                    {formatGitHubFileStats(detail.run.githubContext) ? (
+                      <div className="rounded-2xl bg-black/20 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                          Patch stats
+                        </p>
+                        <p className="mt-2 text-sm text-slate-200">
+                          {formatGitHubFileStats(detail.run.githubContext)}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                  <a
+                    href={detail.run.githubContext.htmlUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-500/18"
+                  >
+                    Open on GitHub
+                  </a>
+                </div>
+              ) : null}
               <div className="rounded-2xl bg-white/[0.04] p-4">
                 <p className="mb-2 text-[11px] uppercase tracking-[0.25em] text-slate-500">
-                  Original input
+                  {detail.run.sourceType === 'github' ? 'Fetched source' : 'Original input'}
                 </p>
                 <pre
                   className={`overflow-x-auto rounded-2xl bg-black/20 px-4 py-4 text-sm text-slate-200 [tab-size:2] ${

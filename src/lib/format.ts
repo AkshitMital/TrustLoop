@@ -1,4 +1,10 @@
 import type { PassFail, RunStatus, SourceType } from '../../shared/pipeline'
+import type {
+  GitHubChangeStatus,
+  GitHubRunContext,
+  GitHubSourceKind,
+} from '../../shared/github'
+import { basename } from '../../shared/github'
 
 const timeFormatter = new Intl.DateTimeFormat('en', {
   dateStyle: 'medium',
@@ -26,7 +32,66 @@ export function humanizePassFail(passFail: PassFail) {
 }
 
 export function humanizeSourceType(sourceType: SourceType) {
+  if (sourceType === 'github') {
+    return 'GitHub'
+  }
+
   return toTitleCaseWords(sourceType)
+}
+
+export function humanizeGitHubSourceKind(sourceKind: GitHubSourceKind) {
+  switch (sourceKind) {
+    case 'pr_url':
+      return 'PR URL'
+    case 'file_url':
+      return 'File URL'
+    case 'branch_diff':
+      return 'Branch Diff'
+    case 'commit':
+      return 'Commit SHA'
+  }
+}
+
+export function humanizeGitHubChangeStatus(status: GitHubChangeStatus) {
+  return toTitleCaseWords(status)
+}
+
+export function formatGitHubRepoLabel(context: Pick<GitHubRunContext, 'owner' | 'repo'>) {
+  return `${context.owner}/${context.repo}`
+}
+
+export function formatGitHubRefLabel(context: GitHubRunContext) {
+  if (context.prNumber != null) {
+    return `PR #${context.prNumber}`
+  }
+  if (context.commitSha) {
+    return `Commit ${context.commitSha.slice(0, 7)}`
+  }
+  if (context.baseRef && context.headRef) {
+    return `${context.baseRef}...${context.headRef}`
+  }
+  if (context.headRef) {
+    return context.headRef
+  }
+
+  return null
+}
+
+export function formatGitHubPathLabel(context: Pick<GitHubRunContext, 'filePath'>) {
+  return basename(context.filePath)
+}
+
+export function formatGitHubFileStats(context: GitHubRunContext) {
+  const parts: string[] = []
+
+  if (context.changeStatus) {
+    parts.push(humanizeGitHubChangeStatus(context.changeStatus))
+  }
+  if (context.additions != null || context.deletions != null) {
+    parts.push(`+${context.additions ?? 0} / -${context.deletions ?? 0}`)
+  }
+
+  return parts.join(' · ')
 }
 
 export function formatDelta(current?: number | null, previous?: number | null) {

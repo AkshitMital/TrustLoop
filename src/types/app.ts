@@ -1,4 +1,5 @@
 import type { Id } from '../../convex/_generated/dataModel'
+import type { GitHubRunContext } from '../../shared/github'
 import type {
   AttackCategory,
   AttackCaseTemplate,
@@ -19,6 +20,7 @@ export interface RunDoc {
   title: string
   sourceType: SourceType
   sourceText: string
+  githubContext?: GitHubRunContext
   language: 'ts'
   status: RunStatus
   currentVersionNumber: number

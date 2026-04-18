@@ -4,8 +4,41 @@ import { v } from 'convex/values'
 const sourceType = v.union(
   v.literal('prompt'),
   v.literal('code'),
+  v.literal('github'),
   v.literal('demo'),
 )
+
+const githubSourceKind = v.union(
+  v.literal('pr_url'),
+  v.literal('file_url'),
+  v.literal('branch_diff'),
+  v.literal('commit'),
+)
+
+const githubChangeStatus = v.union(
+  v.literal('added'),
+  v.literal('modified'),
+  v.literal('removed'),
+  v.literal('renamed'),
+  v.literal('copied'),
+  v.literal('changed'),
+  v.literal('unchanged'),
+)
+
+const githubContext = v.object({
+  owner: v.string(),
+  repo: v.string(),
+  filePath: v.string(),
+  sourceKind: githubSourceKind,
+  htmlUrl: v.string(),
+  prNumber: v.optional(v.number()),
+  commitSha: v.optional(v.string()),
+  baseRef: v.optional(v.string()),
+  headRef: v.optional(v.string()),
+  changeStatus: v.optional(githubChangeStatus),
+  additions: v.optional(v.number()),
+  deletions: v.optional(v.number()),
+})
 
 const runStatus = v.union(
   v.literal('queued'),
@@ -95,6 +128,7 @@ export default defineSchema({
     title: v.string(),
     sourceType,
     sourceText: v.string(),
+    githubContext: v.optional(githubContext),
     language: v.literal('ts'),
     status: runStatus,
     currentVersionNumber: v.number(),

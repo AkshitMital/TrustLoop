@@ -572,7 +572,7 @@ export const bootstrapRun = action({
     let redTeamFallbackReason: string | null = null
 
     if (hasOpenAIConfig() && run.sourceType !== 'demo') {
-      if (run.sourceType === 'code') {
+      if (run.sourceType === 'code' || run.sourceType === 'github') {
         try {
           const code = ensureExported(run.sourceText)
 
@@ -581,7 +581,10 @@ export const bootstrapRun = action({
               `${run.title}\n${run.sourceText}\n${code}`,
             ),
             code,
-            changeSummary: 'User-supplied code was registered as version 1 for evaluation.',
+            changeSummary:
+              run.sourceType === 'github'
+                ? 'GitHub source file was registered as version 1 for evaluation.'
+                : 'User-supplied code was registered as version 1 for evaluation.',
             cases: deterministicDraft.cases,
           }
           makerMode = 'deterministic'
@@ -607,7 +610,9 @@ export const bootstrapRun = action({
                 ? error.message
                 : 'Unknown OpenAI Red Team bootstrap error.'
             redTeamSummary =
-              'The submitted code stayed local, and deterministic attack cases were substituted for this bootstrap iteration.'
+              run.sourceType === 'github'
+                ? 'The fetched GitHub file stayed local, and deterministic attack cases were substituted for this bootstrap iteration.'
+                : 'The submitted code stayed local, and deterministic attack cases were substituted for this bootstrap iteration.'
           }
         } catch (error) {
           makerMode = 'deterministic'

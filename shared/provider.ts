@@ -111,17 +111,25 @@ export function deriveProviderSummary(
   const missingBackendKey = uniqueReasons.some((reason) =>
     isMissingConvexOpenAIKey(reason),
   )
-  const codeRunHybrid = sourceType === 'code' && sawOpenAI && sawDeterministic && !sawFallback
+  const directArtifactRunHybrid =
+    (sourceType === 'code' || sourceType === 'github') &&
+    sawOpenAI &&
+    sawDeterministic &&
+    !sawFallback
 
   if (sawOpenAI && sawDeterministic) {
     return {
       mode: 'mixed',
-      label: codeRunHybrid ? 'Hybrid' : 'Mixed',
+      label: directArtifactRunHybrid ? 'Hybrid' : 'Mixed',
       detail:
-        codeRunHybrid
+        directArtifactRunHybrid
           ? uniqueModels.length > 0
-            ? `This code run kept your submitted version local while OpenAI handled Red Team and repair stages. OpenAI models seen: ${uniqueModels.join(', ')}.`
-            : 'This code run kept your submitted version local while OpenAI handled Red Team and repair stages.'
+            ? sourceType === 'github'
+              ? `This GitHub run kept the fetched file local while OpenAI handled Red Team and repair stages. OpenAI models seen: ${uniqueModels.join(', ')}.`
+              : `This run kept your submitted version local while OpenAI handled Red Team and repair stages. OpenAI models seen: ${uniqueModels.join(', ')}.`
+            : sourceType === 'github'
+              ? 'This GitHub run kept the fetched file local while OpenAI handled Red Team and repair stages.'
+              : 'This run kept your submitted version local while OpenAI handled Red Team and repair stages.'
           : uniqueModels.length > 0
             ? `This run mixed OpenAI-backed stages with deterministic fallback. OpenAI models seen: ${uniqueModels.join(', ')}.`
             : 'This run mixed OpenAI-backed stages with deterministic fallback.',

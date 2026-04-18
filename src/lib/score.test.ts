@@ -44,6 +44,17 @@ describe('shared trust pipeline helpers', () => {
     expect(patch.changeSummary).toContain('null and type guards')
   })
 
+  it('bootstraps github runs from fetched file contents instead of generating new code', () => {
+    const artifacts = buildInitialArtifacts({
+      sourceType: 'github',
+      title: 'openai/trustloop · sanitize.ts',
+      sourceText: 'function sanitizeUserInput(input) { return input }',
+    })
+
+    expect(artifacts.code).toContain('export function sanitizeUserInput')
+    expect(artifacts.changeSummary).toContain('User-supplied code')
+  })
+
   it('stages sanitize hardening across multiple repair versions', () => {
     const stageTwo = buildPatchedArtifacts(
       'sanitize',

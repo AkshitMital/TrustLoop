@@ -6,12 +6,46 @@ import {
   query,
 } from './_generated/server.js'
 import { deriveProviderSummary } from '../shared/provider.js'
+import { buildGitHubRunTitle } from '../shared/github.js'
 
 const sourceTypeValidator = v.union(
   v.literal('prompt'),
   v.literal('code'),
+  v.literal('github'),
   v.literal('demo'),
 )
+
+const githubSourceKindValidator = v.union(
+  v.literal('pr_url'),
+  v.literal('file_url'),
+  v.literal('branch_diff'),
+  v.literal('commit'),
+)
+
+const githubChangeStatusValidator = v.union(
+  v.literal('added'),
+  v.literal('modified'),
+  v.literal('removed'),
+  v.literal('renamed'),
+  v.literal('copied'),
+  v.literal('changed'),
+  v.literal('unchanged'),
+)
+
+const githubContextValidator = v.object({
+  owner: v.string(),
+  repo: v.string(),
+  filePath: v.string(),
+  sourceKind: githubSourceKindValidator,
+  htmlUrl: v.string(),
+  prNumber: v.optional(v.number()),
+  commitSha: v.optional(v.string()),
+  baseRef: v.optional(v.string()),
+  headRef: v.optional(v.string()),
+  changeStatus: v.optional(githubChangeStatusValidator),
+  additions: v.optional(v.number()),
+  deletions: v.optional(v.number()),
+})
 
 const severityValidator = v.union(
   v.literal('low'),
@@ -91,9 +125,23 @@ const eventSourceValidator = v.union(
   v.literal('system'),
 )
 
-function defaultTitle(sourceType: 'prompt' | 'code' | 'demo', sourceText: string) {
+function defaultTitle(
+  sourceType: 'prompt' | 'code' | 'github' | 'demo',
+  sourceText: string,
+  githubContext?: {
+    owner: string
+    repo: string
+    filePath: string
+    sourceKind: 'pr_url' | 'file_url' | 'branch_diff' | 'commit'
+    htmlUrl: string
+  } | null,
+) {
   if (sourceType === 'demo') {
     return 'Seeded sanitize input demo'
+  }
+
+  if (sourceType === 'github' && githubContext) {
+    return buildGitHubRunTitle(githubContext)
   }
 
   if (sourceType === 'prompt') {
@@ -217,19 +265,26 @@ export const createRun = mutation({
     title: v.string(),
     sourceType: sourceTypeValidator,
     sourceText: v.string(),
+    githubContext: v.optional(githubContextValidator),
   },
   handler: async (ctx, args) => {
     const now = Date.now()
-    const normalizedTitle = args.title.trim() || defaultTitle(args.sourceType, args.sourceText)
+    const normalizedTitle =
+      args.title.trim() || defaultTitle(args.sourceType, args.sourceText, args.githubContext)
     const normalizedText =
       args.sourceType === 'demo' && !args.sourceText
         ? 'Build a sanitizeUserInput helper for profile fields.'
         : args.sourceText
 
+    if (args.sourceType === 'github' && !args.githubContext) {
+      throw new Error('GitHub runs require GitHub metadata.')
+    }
+
     const runId = await ctx.db.insert('runs', {
       title: normalizedTitle,
       sourceType: args.sourceType,
       sourceText: normalizedText,
+      githubContext: args.githubContext,
       language: 'ts',
       status: 'queued',
       currentVersionNumber: 0,

@@ -8,7 +8,7 @@ AI Trust Cockpit is a React + Vite + Tailwind + Convex MVP for evaluating AI-gen
 4. The Eval Engine scores correctness, robustness, security, performance, and code quality.
 5. A repair iteration patches the code and reruns the evaluation.
 
-Prompt and code runs can use OpenAI-backed Maker and Red Team stages when `OPENAI_API_KEY` is configured in Convex, while deterministic fallback remains available if the backend key is missing.
+Prompt, code, and GitHub runs can use OpenAI-backed Maker and Red Team stages when `OPENAI_API_KEY` is configured in Convex, while deterministic fallback remains available if the backend key is missing.
 
 ## Stack
 
@@ -58,16 +58,30 @@ Start the frontend in another terminal:
 npm run dev
 ```
 
-Open the app and create a `Prompt` or `Code` run to trigger the trust loop.
+Open the app and create a `Prompt`, `Code`, or `GitHub` run to trigger the trust loop.
 
 Important: a key stored only in the repo's `.env.local` does not automatically reach Convex actions. `.env.local` is where `convex dev` writes `VITE_CONVEX_URL` for the frontend. The backend OpenAI key must be stored with `npx convex env set ...`.
+
+## GitHub source mode
+
+GitHub mode adds a manual repo-connected workflow without removing the existing prompt/code flow.
+
+- Supported GitHub inputs:
+  - Pull request URL
+  - File URL
+  - Branch diff
+  - Commit SHA
+- TrustLoop resolves the GitHub artifact, filters to supported `.ts`, `.tsx`, `.js`, and `.jsx` source files, and creates one TrustLoop run per selected file.
+- The first GitHub release is PAT-first. The personal access token is stored in browser local storage only and is never persisted in Convex.
+- Public repos work without a token. Private repos require a PAT with repo read access.
 
 ## What works
 
 - Dashboard with live run list, status, score, iteration, pass/fail, and timestamp
-- New Run flow for prompt and code runs
+- New Run flow for prompt, code, and GitHub runs
 - Run detail cockpit with:
   - original prompt/code
+  - GitHub provenance for repo-backed runs
   - generated versions
   - attack cases
   - failed cases
@@ -78,6 +92,7 @@ Important: a key stored only in the repo's `.env.local` does not automatically r
 - A staged automatic repair loop that can progress across multiple versions
 - Automatic backend scheduling so the loop keeps iterating even if the detail page is closed
 - OpenAI-backed Maker and Red Team stages for prompt/code runs when the backend has `OPENAI_API_KEY`
+- GitHub-backed source resolution for repo, PR, file, diff, and commit analysis
 - Deterministic fallback mode so the product still works without an external model key
 - Explicit `analysis-only` fallback when a submitted code sample cannot be executed safely in the backend evaluator
 

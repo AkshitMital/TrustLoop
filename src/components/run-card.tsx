@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
 import type { RunListItem } from '../types/app'
-import { formatTimestamp, humanizeSourceType } from '../lib/format'
+import {
+  formatGitHubRepoLabel,
+  formatTimestamp,
+  humanizeSourceType,
+} from '../lib/format'
 import { ProviderBadge } from './provider-badge'
 import { ScorePill } from './score-pill'
 import { StatusBadge } from './status-badge'
@@ -31,6 +35,16 @@ export function RunCard({ run }: RunCardProps) {
             {humanizeSourceType(run.sourceType)}
           </p>
           <h3 className="break-words text-lg font-semibold text-white">{run.title}</h3>
+          {run.githubContext ? (
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
+              <span className="rounded-full bg-white/[0.05] px-3 py-1">
+                {formatGitHubRepoLabel(run.githubContext)}
+              </span>
+              <span className="rounded-full bg-white/[0.05] px-3 py-1">
+                {run.githubContext.filePath}
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-col md:items-end">
           <StatusBadge status={run.status} passFail={run.passFail} />

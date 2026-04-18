@@ -1,6 +1,6 @@
 import type { Id } from '../convex/_generated/dataModel'
 
-export type SourceType = 'prompt' | 'code' | 'demo'
+export type SourceType = 'prompt' | 'code' | 'github' | 'demo'
 export type RunStatus =
   | 'queued'
   | 'generating'
@@ -532,7 +532,7 @@ export function buildInitialArtifacts(input: RunSeedInput): DraftArtifacts {
   const scenario = inferScenarioFromText(hintText)
   const fallbackName = scenario === 'sum' ? 'addNumbers' : 'sanitizeUserInput'
 
-  if (input.sourceType === 'code') {
+  if (input.sourceType === 'code' || input.sourceType === 'github') {
     const code = ensureExported(input.sourceText)
     return {
       scenario,
