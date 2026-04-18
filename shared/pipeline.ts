@@ -120,6 +120,13 @@ export interface EvaluationOutput {
   }
 }
 
+export interface EvaluationSnapshot {
+  versionNumber: number
+  mode: EvaluationMode
+  overallScore: number
+  detectedFailures: FailureItem[]
+}
+
 export interface RunSeedInput {
   sourceType: SourceType
   title: string
@@ -141,7 +148,7 @@ export interface PatchArtifacts {
   cases: AttackCaseTemplate[]
 }
 
-export const MAX_VERSION_NUMBER = 4
+export const MAX_VERSION_NUMBER = 20
 
 const CATEGORY_LABEL: Record<AttackCategory, string> = {
   null_undefined: 'Null / undefined handling',
@@ -706,6 +713,51 @@ function overallSummary(execution: ExecutionReport, overallScore: number, passFa
   return `${execution.mode === 'analysis_only' ? 'Analysis-only' : 'Executed'} evaluation ran ${execution.summary.total} attack cases with ${execution.summary.failed} failures and ${execution.summary.errors} runtime errors. Overall score ${overallScore}. Final verdict: ${passFail}.`
 }
 
+export function derivePassFailFromEvaluation(
+  evaluation: Pick<EvaluationSnapshot, 'overallScore' | 'detectedFailures'>,
+): Extract<PassFail, 'pass' | 'fail'> {
+  return evaluation.overallScore >= 80 &&
+    !evaluation.detectedFailures.some((failure) => failure.severity === 'high')
+    ? 'pass'
+    : 'fail'
+}
+
+export function compareEvaluationsForBest<T extends EvaluationSnapshot>(
+  left: T,
+  right: T,
+) {
+  const leftPassFail = derivePassFailFromEvaluation(left)
+  const rightPassFail = derivePassFailFromEvaluation(right)
+
+  if (leftPassFail !== rightPassFail) {
+    return leftPassFail === 'pass' ? 1 : -1
+  }
+
+  if (left.overallScore !== right.overallScore) {
+    return left.overallScore > right.overallScore ? 1 : -1
+  }
+
+  if (left.mode !== right.mode) {
+    return left.mode === 'executed' ? 1 : -1
+  }
+
+  if (left.versionNumber !== right.versionNumber) {
+    return left.versionNumber > right.versionNumber ? 1 : -1
+  }
+
+  return 0
+}
+
+export function pickBestEvaluation<T extends EvaluationSnapshot>(evaluations: T[]) {
+  return evaluations.reduce<T | null>((best, candidate) => {
+    if (!best) {
+      return candidate
+    }
+
+    return compareEvaluationsForBest(candidate, best) > 0 ? candidate : best
+  }, null)
+}
+
 export function scoreExecution(code: string, execution: ExecutionReport): EvaluationOutput {
   const correctness = scoreCategory(
     'Correctness',
@@ -767,11 +819,10 @@ export function scoreExecution(code: string, execution: ExecutionReport): Evalua
     ...performance.detectedFailures,
   ]
 
-  const passFail: PassFail =
-    overallScore >= 80 &&
-    !detectedFailures.some((failure) => failure.severity === 'high')
-      ? 'pass'
-      : 'fail'
+  const passFail = derivePassFailFromEvaluation({
+    overallScore,
+    detectedFailures,
+  })
 
   return {
     correctnessScore: correctness.score,
@@ -791,8 +842,8 @@ export function scoreExecution(code: string, execution: ExecutionReport): Evalua
         label: 'Execution mode',
         detail:
           execution.mode === 'analysis_only'
-            ? 'Execution fell back to analysis-only because the code could not be safely evaluated in the worker.'
-            : `Entry point ${execution.entryPoint ?? 'unknown'} executed successfully in the worker.`,
+            ? 'Execution fell back to analysis-only because the evaluator could not safely run the code directly.'
+            : `Entry point ${execution.entryPoint ?? 'unknown'} executed successfully in the evaluator.`,
       },
     ],
     passFail,

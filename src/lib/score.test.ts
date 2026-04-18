@@ -3,6 +3,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import {
   buildInitialArtifacts,
   buildPatchedArtifacts,
+  pickBestEvaluation,
   scoreExecution,
   type ExecutionReport,
 } from '../../shared/pipeline'
@@ -116,5 +117,31 @@ describe('shared trust pipeline helpers', () => {
 
     expect(evaluation.passFail).toBe('pass')
     expect(evaluation.overallScore).toBeGreaterThanOrEqual(80)
+  })
+
+  it('picks the best evaluation instead of the latest one', () => {
+    const best = pickBestEvaluation([
+      {
+        versionNumber: 3,
+        mode: 'analysis_only' as const,
+        overallScore: 74,
+        detectedFailures: [
+          {
+            title: 'Large payload clamp',
+            severity: 'medium' as const,
+            category: 'large_payload' as const,
+            detail: 'Fallback missed the clamp.',
+          },
+        ],
+      },
+      {
+        versionNumber: 2,
+        mode: 'executed' as const,
+        overallScore: 88,
+        detectedFailures: [],
+      },
+    ])
+
+    expect(best?.versionNumber).toBe(2)
   })
 })

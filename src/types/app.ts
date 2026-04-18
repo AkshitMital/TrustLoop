@@ -8,6 +8,7 @@ import type {
   Severity,
   SourceType,
 } from '../../shared/pipeline'
+import type { ProviderSummary } from '../../shared/provider'
 
 export type RunId = Id<'runs'>
 export type AttackCaseId = Id<'attackCases'>
@@ -21,10 +22,15 @@ export interface RunDoc {
   language: 'ts'
   status: RunStatus
   currentVersionNumber: number
+  latestVersionNumber?: number
   currentScore: number
   passFail: PassFail
   createdAt: number
   updatedAt: number
+}
+
+export interface RunListItem extends RunDoc {
+  provider: ProviderSummary
 }
 
 export interface RunVersionDoc {
@@ -113,6 +119,7 @@ export interface RunEventDoc {
 
 export interface RunDetail {
   run: RunDoc
+  provider: ProviderSummary
   versions: RunVersionDoc[]
   currentVersion: RunVersionDoc | null
   attackCases: AttackCaseDoc[]

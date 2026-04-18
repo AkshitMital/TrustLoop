@@ -6,12 +6,12 @@ import { AttackCaseCard } from '../components/attack-case-card'
 import { CodeWindow } from '../components/code-window'
 import { EmptyState } from '../components/empty-state'
 import { MetricBar } from '../components/metric-bar'
+import { ProviderBadge } from '../components/provider-badge'
 import { ScorePill } from '../components/score-pill'
 import { SectionCard } from '../components/section-card'
 import { StageFeed } from '../components/stage-feed'
 import { StatusBadge } from '../components/status-badge'
 import { formatDelta, formatTimestamp, truncate } from '../lib/format'
-import { useRunAutomation } from '../hooks/use-run-automation'
 import type { AttackCaseDoc, FailureDoc, RunDetail } from '../types/app'
 
 export function RunDetailPage() {
@@ -21,8 +21,6 @@ export function RunDetailPage() {
     | RunDetail
     | null
     | undefined
-
-  useRunAutomation(detail)
 
   if (detail === undefined) {
     return (
@@ -41,29 +39,52 @@ export function RunDetailPage() {
     )
   }
 
-  const latestFix = detail.fixSuggestions.at(-1) ?? null
+  const latestIterationNumber =
+    detail.run.latestVersionNumber ?? detail.run.currentVersionNumber
+  const latestFix =
+    detail.fixSuggestions.find(
+      (fix) => fix.toVersionNumber === detail.currentVersion?.versionNumber,
+    ) ??
+    detail.fixSuggestions.at(-1) ??
+    null
   const scoreDelta = formatDelta(
     detail.currentEval?.overallScore,
     detail.previousEval?.overallScore,
   )
   const sourceIsCode = detail.run.sourceType === 'code'
+  const showingBestVersion =
+    detail.run.passFail !== 'pending' &&
+    latestIterationNumber !== detail.run.currentVersionNumber
 
   return (
     <div className="space-y-6">
       <SectionCard
         title={detail.run.title}
         eyebrow="Run detail"
-        aside={<StatusBadge status={detail.run.status} passFail={detail.run.passFail} />}
+        aside={
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge status={detail.run.status} passFail={detail.run.passFail} />
+            <ProviderBadge provider={detail.provider} />
+          </div>
+        }
       >
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <div className="rounded-2xl bg-white/[0.04] p-4">
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Source</p>
               <p className="mt-2 text-sm text-slate-300">{detail.run.sourceType}</p>
             </div>
             <div className="rounded-2xl bg-white/[0.04] p-4">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Iteration</p>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">
+                Best version
+              </p>
               <p className="mt-2 text-sm text-slate-300">{detail.run.currentVersionNumber}</p>
+            </div>
+            <div className="rounded-2xl bg-white/[0.04] p-4">
+              <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">
+                Latest iteration
+              </p>
+              <p className="mt-2 text-sm text-slate-300">{latestIterationNumber}</p>
             </div>
             <div className="rounded-2xl bg-white/[0.04] p-4">
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Updated</p>
@@ -73,17 +94,32 @@ export function RunDetailPage() {
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Delta</p>
               <p className="mt-2 text-sm text-slate-300">{scoreDelta ?? '—'}</p>
             </div>
+            <div className="rounded-2xl bg-white/[0.04] p-4">
+              <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Provider</p>
+              <p className="mt-2 text-sm font-medium text-white">{detail.provider.label}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{detail.provider.detail}</p>
+            </div>
           </div>
           <ScorePill
             score={detail.currentEval?.overallScore ?? detail.run.currentScore}
             label={
               detail.currentEval?.mode === 'analysis_only'
-                ? 'analysis-only score'
-                : 'overall score'
+                ? showingBestVersion
+                  ? 'analysis-only best score'
+                  : 'analysis-only score'
+                : showingBestVersion
+                  ? 'best score'
+                  : 'overall score'
             }
             emphasize
           />
         </div>
+        {showingBestVersion ? (
+          <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-500/8 px-4 py-3 text-sm leading-6 text-cyan-100">
+            Displaying the best version from the full loop: version {detail.run.currentVersionNumber}.
+            The run continued through iteration {latestIterationNumber}, but this version earned the strongest result.
+          </div>
+        ) : null}
       </SectionCard>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_20rem]">

@@ -78,17 +78,24 @@ export function NewRunPage() {
               body="This creates a staged sanitize-input hardening story. The demo starts with brittle code, then climbs through multiple visible repair iterations before it fully passes."
             />
           ) : (
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-white">
-                {sourceType === 'prompt' ? 'Prompt' : 'Code'}
-              </span>
-              <textarea
-                value={sourceText}
-                onChange={(event) => setSourceText(event.target.value)}
-                rows={sourceType === 'prompt' ? 8 : 16}
-                className="min-h-60 w-full rounded-3xl border border-white/10 bg-black/25 px-4 py-4 font-[var(--mono)] text-sm leading-7 text-slate-100 outline-none transition focus:border-cyan-300/40"
-              />
-            </label>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-amber-400/20 bg-amber-500/8 p-4 text-sm leading-6 text-amber-100">
+                Prompt and code runs only use OpenAI when `OPENAI_API_KEY` is set in Convex
+                env. A key in `.env.local` alone will not reach Convex actions. After
+                setting the secret, restart `npx convex dev`.
+              </div>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-white">
+                  {sourceType === 'prompt' ? 'Prompt' : 'Code'}
+                </span>
+                <textarea
+                  value={sourceText}
+                  onChange={(event) => setSourceText(event.target.value)}
+                  rows={sourceType === 'prompt' ? 8 : 16}
+                  className="min-h-60 w-full rounded-3xl border border-white/10 bg-black/25 px-4 py-4 font-[var(--mono)] text-sm leading-7 text-slate-100 outline-none transition focus:border-cyan-300/40"
+                />
+              </label>
+            </div>
           )}
 
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
@@ -115,8 +122,8 @@ export function NewRunPage() {
         <ul className="space-y-3 text-sm leading-6 text-slate-300">
           <li>Single-language MVP: JavaScript / TypeScript only.</li>
           <li>Best for one exported function or a small utility file.</li>
-          <li>JS-compatible code runs in the worker. Other samples fall back to analysis-only.</li>
-          <li>Automatic repairs now progress through staged hardening passes instead of one perfect patch.</li>
+          <li>Exported utility code executes in the backend evaluator; unsupported samples fall back to analysis-only.</li>
+          <li>The loop keeps iterating automatically in Convex until it passes, converges, or hits the high iteration cap.</li>
         </ul>
       </SectionCard>
     </div>

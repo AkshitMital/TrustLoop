@@ -51,7 +51,7 @@ export function useRunLauncher() {
         source: 'client',
         versionNumber: 1,
         title: 'Client received bootstrap response',
-        detail: 'The initial version and attack cases were provisioned in Convex.',
+        detail: 'The initial version and attack cases were provisioned, and backend evaluation was queued in Convex.',
         severity: 'info',
       })
 

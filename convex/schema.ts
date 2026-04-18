@@ -98,6 +98,7 @@ export default defineSchema({
     language: v.literal('ts'),
     status: runStatus,
     currentVersionNumber: v.number(),
+    latestVersionNumber: v.optional(v.number()),
     currentScore: v.number(),
     passFail,
     createdAt: v.number(),

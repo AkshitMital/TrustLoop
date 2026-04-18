@@ -116,5 +116,5 @@ export function useRunAutomation(detail: RunDetail | null | undefined) {
         detail: message,
       })
     })
-  }, [detail])
+  }, [detail, logEvent, reportRunError])
 }

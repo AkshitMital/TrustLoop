@@ -5,10 +5,10 @@ import { EmptyState } from '../components/empty-state'
 import { RunCard } from '../components/run-card'
 import { SectionCard } from '../components/section-card'
 import { useRunLauncher } from '../hooks/use-run-launcher'
-import type { RunDoc } from '../types/app'
+import type { RunListItem } from '../types/app'
 
 export function DashboardPage() {
-  const runs = useQuery(api.runs.listRuns, {}) as RunDoc[] | undefined
+  const runs = useQuery(api.runs.listRuns, {}) as RunListItem[] | undefined
   const { launchRun, isLaunching } = useRunLauncher()
 
   async function launchSeededDemo() {
@@ -59,7 +59,7 @@ export function DashboardPage() {
           <div className="rounded-2xl bg-white/[0.04] p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Evaluator</p>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              The browser worker executes JS-compatible utilities and falls back to analysis-only when needed.
+              A backend evaluator executes exported utility code in Convex and falls back to analysis-only only when execution truly cannot run safely.
             </p>
           </div>
           <div className="rounded-2xl bg-white/[0.04] p-4">

@@ -5,6 +5,7 @@ import {
   mutation,
   query,
 } from './_generated/server.js'
+import { deriveProviderSummary } from '../shared/provider.js'
 
 const sourceTypeValidator = v.union(
   v.literal('prompt'),
@@ -105,11 +106,26 @@ function defaultTitle(sourceType: 'prompt' | 'code' | 'demo', sourceText: string
 export const listRuns = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const runs = await ctx.db
       .query('runs')
       .withIndex('by_updatedAt')
       .order('desc')
       .collect()
+
+    return await Promise.all(
+      runs.map(async (run) => {
+        const events = await ctx.db
+          .query('runEvents')
+          .withIndex('by_runId', (q) => q.eq('runId', run._id))
+          .collect()
+
+        return {
+          ...run,
+          latestVersionNumber: run.latestVersionNumber ?? run.currentVersionNumber,
+          provider: deriveProviderSummary(run.sourceType, events),
+        }
+      }),
+    )
   },
 })
 
@@ -150,6 +166,10 @@ export const getRunDetail = query({
     const orderedVersions = [...versions].sort(
       (left, right) => left.versionNumber - right.versionNumber,
     )
+    const latestVersionNumber =
+      run.latestVersionNumber ??
+      orderedVersions.at(-1)?.versionNumber ??
+      run.currentVersionNumber
     const currentVersion =
       orderedVersions.find(
         (version) => version.versionNumber === run.currentVersionNumber,
@@ -165,9 +185,14 @@ export const getRunDetail = query({
       evalResults.find(
         (result) => result.versionNumber === run.currentVersionNumber - 1,
       ) ?? null
+    const provider = deriveProviderSummary(run.sourceType, events)
 
     return {
-      run,
+      run: {
+        ...run,
+        latestVersionNumber,
+      },
+      provider,
       versions: orderedVersions,
       currentVersion: currentVersion ?? null,
       attackCases: attackCases.sort(
@@ -208,6 +233,7 @@ export const createRun = mutation({
       language: 'ts',
       status: 'queued',
       currentVersionNumber: 0,
+      latestVersionNumber: 0,
       currentScore: 0,
       passFail: 'pending',
       createdAt: now,
@@ -317,6 +343,33 @@ export const getExecutionContext = internalQuery({
   },
 })
 
+export const getEvaluationForVersion = internalQuery({
+  args: {
+    runId: v.id('runs'),
+    versionNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query('evalResults')
+      .withIndex('by_runId_versionNumber', (q) =>
+        q.eq('runId', args.runId).eq('versionNumber', args.versionNumber),
+      )
+      .unique()
+  },
+})
+
+export const listRunEvaluations = internalQuery({
+  args: {
+    runId: v.id('runs'),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query('evalResults')
+      .withIndex('by_runId', (q) => q.eq('runId', args.runId))
+      .collect()
+  },
+})
+
 export const setRunStatus = internalMutation({
   args: {
     runId: v.id('runs'),
@@ -331,6 +384,7 @@ export const setRunStatus = internalMutation({
       v.literal('error'),
     ),
     currentVersionNumber: v.optional(v.number()),
+    latestVersionNumber: v.optional(v.number()),
     currentScore: v.optional(v.number()),
     passFail: v.optional(v.union(v.literal('pending'), v.literal('pass'), v.literal('fail'))),
   },
@@ -342,6 +396,9 @@ export const setRunStatus = internalMutation({
 
     if (args.currentVersionNumber !== undefined) {
       patch.currentVersionNumber = args.currentVersionNumber
+    }
+    if (args.latestVersionNumber !== undefined) {
+      patch.latestVersionNumber = args.latestVersionNumber
     }
     if (args.currentScore !== undefined) {
       patch.currentScore = args.currentScore
@@ -416,6 +473,7 @@ export const seedVersionArtifacts = internalMutation({
 
     await ctx.db.patch(args.runId, {
       currentVersionNumber: args.versionNumber,
+      latestVersionNumber: args.versionNumber,
       status: 'awaiting_execution',
       updatedAt: now,
     })
@@ -551,6 +609,7 @@ export const createPatchedVersion = internalMutation({
 
     await ctx.db.patch(args.runId, {
       currentVersionNumber: args.toVersionNumber,
+      latestVersionNumber: args.toVersionNumber,
       status: 'awaiting_execution',
       updatedAt: now,
     })
@@ -562,12 +621,14 @@ export const completeRun = internalMutation({
     runId: v.id('runs'),
     passFail: v.union(v.literal('pass'), v.literal('fail')),
     currentScore: v.number(),
+    currentVersionNumber: v.number(),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.runId, {
       status: 'completed',
       passFail: args.passFail,
       currentScore: args.currentScore,
+      currentVersionNumber: args.currentVersionNumber,
       updatedAt: Date.now(),
     })
   },

@@ -1,14 +1,18 @@
 import { Link } from 'react-router-dom'
-import type { RunDoc } from '../types/app'
+import type { RunListItem } from '../types/app'
 import { formatTimestamp } from '../lib/format'
+import { ProviderBadge } from './provider-badge'
 import { ScorePill } from './score-pill'
 import { StatusBadge } from './status-badge'
 
 interface RunCardProps {
-  run: RunDoc
+  run: RunListItem
 }
 
 export function RunCard({ run }: RunCardProps) {
+  const latestIterationNumber = run.latestVersionNumber ?? run.currentVersionNumber
+  const scoreLabel = run.passFail === 'pending' ? 'current score' : 'best score'
+
   return (
     <Link
       to={`/runs/${run._id}`}
@@ -21,14 +25,21 @@ export function RunCard({ run }: RunCardProps) {
           </p>
           <h3 className="text-lg font-semibold text-white">{run.title}</h3>
         </div>
-        <StatusBadge status={run.status} passFail={run.passFail} />
+        <div className="flex flex-col items-end gap-2">
+          <StatusBadge status={run.status} passFail={run.passFail} />
+          <ProviderBadge provider={run.provider} />
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-2xl bg-white/[0.04] p-3">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Iteration</p>
-            <p className="mt-2 text-lg font-semibold text-white">{run.currentVersionNumber || '—'}</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
+              Latest iteration
+            </p>
+            <p className="mt-2 text-lg font-semibold text-white">
+              {latestIterationNumber || '—'}
+            </p>
           </div>
           <div className="rounded-2xl bg-white/[0.04] p-3">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Updated</p>
@@ -38,10 +49,14 @@ export function RunCard({ run }: RunCardProps) {
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Language</p>
             <p className="mt-2 text-lg font-semibold text-white">TypeScript</p>
           </div>
+          <div className="rounded-2xl bg-white/[0.04] p-3">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Provider</p>
+            <p className="mt-2 text-sm font-medium text-white">{run.provider.label}</p>
+          </div>
         </div>
         <ScorePill
           score={run.currentVersionNumber === 0 ? null : run.currentScore}
-          label="latest score"
+          label={scoreLabel}
         />
       </div>
     </Link>
