@@ -46,6 +46,7 @@ export function RunDetailPage() {
     detail.currentEval?.overallScore,
     detail.previousEval?.overallScore,
   )
+  const sourceIsCode = detail.run.sourceType === 'code'
 
   return (
     <div className="space-y-6">
@@ -93,7 +94,15 @@ export function RunDetailPage() {
                 <p className="mb-2 text-[11px] uppercase tracking-[0.25em] text-slate-500">
                   Original input
                 </p>
-                <p className="text-sm leading-7 text-slate-200">{detail.run.sourceText}</p>
+                <pre
+                  className={`overflow-x-auto rounded-2xl bg-black/20 px-4 py-4 text-sm text-slate-200 [tab-size:2] ${
+                    sourceIsCode
+                      ? 'font-[var(--mono)] leading-6 whitespace-pre'
+                      : 'font-inherit leading-7 whitespace-pre-wrap'
+                  }`}
+                >
+                  {detail.run.sourceText}
+                </pre>
               </div>
               {detail.currentVersion ? (
                 <CodeWindow

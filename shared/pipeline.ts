@@ -141,6 +141,8 @@ export interface PatchArtifacts {
   cases: AttackCaseTemplate[]
 }
 
+export const MAX_VERSION_NUMBER = 4
+
 const CATEGORY_LABEL: Record<AttackCategory, string> = {
   null_undefined: 'Null / undefined handling',
   empty_input: 'Empty input handling',
@@ -227,7 +229,40 @@ function sanitizeInitialCode(name: string) {
 }`
 }
 
-function sanitizePatchedCode(name: string) {
+function sanitizePatchStageTwo(name: string) {
+  return `export function ${name}(input) {
+  if (typeof input !== "string") {
+    return ""
+  }
+
+  const trimmed = input.trim()
+
+  if (!trimmed) {
+    return ""
+  }
+
+  return trimmed.toLowerCase()
+}`
+}
+
+function sanitizePatchStageThree(name: string) {
+  return `export function ${name}(input) {
+  if (typeof input !== "string") {
+    return ""
+  }
+
+  const bounded = input.slice(0, 5000)
+  const trimmed = bounded.trim()
+
+  if (!trimmed) {
+    return ""
+  }
+
+  return trimmed.toLowerCase()
+}`
+}
+
+function sanitizePatchStageFour(name: string) {
   return `export function ${name}(input) {
   if (typeof input !== "string") {
     return ""
@@ -252,7 +287,17 @@ function sumInitialCode(name: string) {
 }`
 }
 
-function sumPatchedCode(name: string) {
+function sumPatchStageTwo(name: string) {
+  return `export function ${name}(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return 0
+  }
+
+  return input.reduce((sum, item) => sum + item, 0)
+}`
+}
+
+function sumPatchStageThree(name: string) {
   return `export function ${name}(input) {
   if (!Array.isArray(input) || input.length === 0) {
     return 0
@@ -260,6 +305,22 @@ function sumPatchedCode(name: string) {
 
   return input.reduce((sum, item) => {
     return Number.isFinite(item) ? sum + item : sum
+  }, 0)
+}`
+}
+
+function sumPatchStageFour(name: string) {
+  return `export function ${name}(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return 0
+  }
+
+  return input.reduce((sum, item) => {
+    if (!Number.isFinite(item)) {
+      return sum
+    }
+
+    return sum + item
   }, 0)
 }`
 }
@@ -503,31 +564,68 @@ export function buildPatchedArtifacts(
   scenario: ScenarioKey,
   code: string,
   failures: FailureItem[],
+  targetVersionNumber: number,
 ): PatchArtifacts {
   const functionName =
     extractExportedFunctionName(code) ??
     (scenario === 'sum' ? 'addNumbers' : 'sanitizeUserInput')
 
   const uniqueFailureLabels = Array.from(new Set(failures.map((failure) => failure.title)))
+  const targetVersion = clamp(targetVersionNumber, 2, MAX_VERSION_NUMBER)
+
+  if (scenario === 'sum') {
+    const stagedCode =
+      targetVersion === 2
+        ? sumPatchStageTwo(functionName)
+        : targetVersion === 3
+          ? sumPatchStageThree(functionName)
+          : sumPatchStageFour(functionName)
+
+    const stagedChangeSummary =
+      targetVersion === 2
+        ? 'Adds an array guard so reducers stop crashing on missing or malformed input.'
+        : targetVersion === 3
+          ? 'Filters out non-number items while keeping the reducer deterministic.'
+          : 'Locks in the reducer contract and keeps noisy values from poisoning the total.'
+
+    const stagedSuggestion =
+      targetVersion === 2
+        ? 'Start by guarding the reducer so bad inputs return a safe default instead of exploding.'
+        : targetVersion === 3
+          ? 'Harden mixed-array handling next so unexpected items no longer corrupt the calculation.'
+          : 'Finalize the arithmetic path so the reducer stays strict, deterministic, and easy to read.'
+
+    return {
+      code: stagedCode,
+      changeSummary: stagedChangeSummary,
+      issueSummary: uniqueFailureLabels.join(', '),
+      suggestion: stagedSuggestion,
+      cases: buildSumCases(),
+    }
+  }
 
   return {
     code:
-      scenario === 'sum'
-        ? sumPatchedCode(functionName)
-        : sanitizePatchedCode(functionName),
+      targetVersion === 2
+        ? sanitizePatchStageTwo(functionName)
+        : targetVersion === 3
+          ? sanitizePatchStageThree(functionName)
+          : sanitizePatchStageFour(functionName),
     changeSummary:
-      scenario === 'sum'
-        ? 'Adds array guards, ignores non-number items, and stabilizes large-array behavior.'
-        : 'Adds null and type guards, clamps large inputs, and strips script tags before normalization.',
+      targetVersion === 2
+        ? 'Adds null and type guards so malformed inputs stop crashing the helper.'
+        : targetVersion === 3
+          ? 'Clamps oversized payloads while preserving the normalization behavior.'
+          : 'Neutralizes raw script tags after the helper is already safe on malformed and oversized input.',
     issueSummary: uniqueFailureLabels.join(', '),
     suggestion:
-      scenario === 'sum'
-        ? 'Guard the reducer, skip invalid items, and keep the function deterministic for repeated calls.'
-        : 'Guard unexpected inputs, clamp oversized payloads, and neutralize raw script tags before returning a value.',
+      targetVersion === 2
+        ? 'First make the helper safe: reject non-string input and preserve the basic trim/lowercase behavior.'
+        : targetVersion === 3
+          ? 'Next bound the output size so large payloads stop creating noisy or unbounded results.'
+          : 'Finally strip raw script tags so the helper closes the remaining security hole before returning text.',
     cases:
-      scenario === 'sum'
-        ? buildSumCases()
-        : buildSanitizeCases(),
+      buildSanitizeCases(),
   }
 }
 

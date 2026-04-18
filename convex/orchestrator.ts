@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api.js'
 import { action } from './_generated/server.js'
 import {
+  MAX_VERSION_NUMBER,
   buildInitialArtifacts,
   buildPatchedArtifacts,
   inferScenarioFromText,
@@ -234,12 +235,16 @@ export const processExecution = action({
         severity: evaluation.passFail === 'pass' ? 'info' : 'warning',
       })
 
-      if (args.versionNumber === 1 && evaluation.passFail === 'fail') {
+      if (
+        evaluation.passFail === 'fail' &&
+        args.versionNumber < MAX_VERSION_NUMBER
+      ) {
         await ctx.runMutation(internal.runs.setRunStatus, {
           runId: args.runId,
           status: 'repairing',
         })
 
+        const nextVersionNumber = args.versionNumber + 1
         const scenario = inferScenarioFromText(
           `${context.run.title}\n${context.run.sourceText}\n${context.version.code}`,
         )
@@ -247,12 +252,13 @@ export const processExecution = action({
           scenario,
           context.version.code,
           evaluation.detectedFailures,
+          nextVersionNumber,
         )
 
         await ctx.runMutation(internal.runs.createPatchedVersion, {
           runId: args.runId,
-          fromVersionNumber: 1,
-          toVersionNumber: 2,
+          fromVersionNumber: args.versionNumber,
+          toVersionNumber: nextVersionNumber,
           code: patch.code,
           changeSummary: patch.changeSummary,
           issueSummary: patch.issueSummary,
@@ -264,11 +270,13 @@ export const processExecution = action({
           runId: args.runId,
           stage: 'repairing',
           source: 'maker',
-          versionNumber: 2,
-          title: 'Maker patch ready',
+          versionNumber: nextVersionNumber,
+          title: `Maker patch ready for version ${nextVersionNumber}`,
           detail: patch.changeSummary,
           debugData: JSON.stringify(
             {
+              fromVersionNumber: args.versionNumber,
+              toVersionNumber: nextVersionNumber,
               issueSummary: patch.issueSummary,
               suggestion: patch.suggestion,
             },
@@ -280,7 +288,7 @@ export const processExecution = action({
 
         return {
           status: 'awaiting_execution',
-          versionNumber: 2,
+          versionNumber: nextVersionNumber,
         }
       }
 
@@ -298,8 +306,11 @@ export const processExecution = action({
         title:
           evaluation.passFail === 'pass'
             ? 'Run completed with a passing score'
-          : 'Run completed with remaining failures',
-        detail: `Final score ${evaluation.overallScore}.`,
+            : 'Run completed after max repair iterations',
+        detail:
+          evaluation.passFail === 'pass'
+            ? `Final score ${evaluation.overallScore}.`
+            : `Final score ${evaluation.overallScore}. The loop stopped after version ${args.versionNumber}.`,
         severity: evaluation.passFail === 'pass' ? 'info' : 'warning',
       })
 

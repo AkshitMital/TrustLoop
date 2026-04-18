@@ -25,17 +25,48 @@ describe('shared trust pipeline helpers', () => {
   })
 
   it('creates a safe patch for failing sanitize runs', () => {
-    const patch = buildPatchedArtifacts('sanitize', 'export function sanitizeUserInput(input) { return input.trim() }', [
-      {
-        title: 'Undefined payload',
-        severity: 'high',
-        category: 'null_undefined',
-        detail: 'The helper threw on undefined.',
-      },
-    ])
+    const patch = buildPatchedArtifacts(
+      'sanitize',
+      'export function sanitizeUserInput(input) { return input.trim() }',
+      [
+        {
+          title: 'Undefined payload',
+          severity: 'high',
+          category: 'null_undefined',
+          detail: 'The helper threw on undefined.',
+        },
+      ],
+      2,
+    )
 
     expect(patch.code).toContain('typeof input !== "string"')
     expect(patch.changeSummary).toContain('null and type guards')
+  })
+
+  it('stages sanitize hardening across multiple repair versions', () => {
+    const stageTwo = buildPatchedArtifacts(
+      'sanitize',
+      'export function sanitizeUserInput(input) { return input }',
+      [],
+      2,
+    )
+    const stageThree = buildPatchedArtifacts(
+      'sanitize',
+      stageTwo.code,
+      [],
+      3,
+    )
+    const stageFour = buildPatchedArtifacts(
+      'sanitize',
+      stageThree.code,
+      [],
+      4,
+    )
+
+    expect(stageTwo.code).not.toContain('slice(0, 5000)')
+    expect(stageThree.code).toContain('slice(0, 5000)')
+    expect(stageThree.code).not.toContain('replace(/<script')
+    expect(stageFour.code).toContain('replace(/<script')
   })
 
   it('scores a clean executed report as passing', () => {

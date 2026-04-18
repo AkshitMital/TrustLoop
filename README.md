@@ -8,7 +8,7 @@ AI Trust Cockpit is a React + Vite + Tailwind + Convex MVP for evaluating AI-gen
 4. The Eval Engine scores correctness, robustness, security, performance, and code quality.
 5. A repair iteration patches the code and reruns the evaluation.
 
-The seeded demo path is intentionally opinionated: it shows a guaranteed fail-then-improve run so the score jump is obvious in a live demo.
+The seeded demo path is intentionally opinionated: it shows a guaranteed fail-then-improve run with staged hardening, so the committee can watch the trust loop work across multiple iterations instead of one magic fix.
 
 ## Stack
 
@@ -54,7 +54,7 @@ Open the app and use `Load seeded demo` to create the guaranteed trust-loop run.
   - fix suggestion
   - before/after comparison
   - stage feed and iteration history
-- One automatic repair loop
+- A staged automatic repair loop that can progress across multiple versions
 - Mock orchestration by default so the product still works without an external model key
 - Explicit `analysis-only` fallback when a submitted code sample cannot be executed safely in the client worker
 

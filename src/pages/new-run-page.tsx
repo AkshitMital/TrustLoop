@@ -75,7 +75,7 @@ export function NewRunPage() {
           {sourceType === 'demo' ? (
             <EmptyState
               title="Seeded demo path"
-              body="This creates the guaranteed fail-then-improve sanitize-input scenario. It is the fastest way to show the trust loop clearly in a live demo."
+              body="This creates a staged sanitize-input hardening story. The demo starts with brittle code, then climbs through multiple visible repair iterations before it fully passes."
             />
           ) : (
             <label className="block">
@@ -116,7 +116,7 @@ export function NewRunPage() {
           <li>Single-language MVP: JavaScript / TypeScript only.</li>
           <li>Best for one exported function or a small utility file.</li>
           <li>JS-compatible code runs in the worker. Other samples fall back to analysis-only.</li>
-          <li>One automatic repair iteration keeps the story crisp and reliable.</li>
+          <li>Automatic repairs now progress through staged hardening passes instead of one perfect patch.</li>
         </ul>
       </SectionCard>
     </div>
