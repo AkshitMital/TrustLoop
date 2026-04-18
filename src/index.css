@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg: #07111b;
+  --bg-muted: #0d1824;
+  --surface: rgba(12, 24, 38, 0.88);
+  --surface-strong: rgba(19, 33, 49, 0.96);
+  --border: rgba(147, 176, 204, 0.16);
+  --text: #eef5fb;
+  --muted: #95a8bd;
+  --accent: #ff8a4c;
+  --accent-soft: rgba(255, 138, 76, 0.18);
+  --cyan: #5bd0ff;
+  --cyan-soft: rgba(91, 208, 255, 0.16);
+  --success: #4ee39a;
+  --warning: #ffc95c;
+  --danger: #ff6b6b;
+  --mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Monaco, Consolas, monospace;
+  --sans: "Avenir Next", "Segoe UI Variable", "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(91, 208, 255, 0.14), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 138, 76, 0.12), transparent 32%),
+    linear-gradient(180deg, #08111a 0%, #050b12 100%);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: var(--mono);
+}
+
+.glass {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+}
+
+.glass-strong {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(22px);
+}
