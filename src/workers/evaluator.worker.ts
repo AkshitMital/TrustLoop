@@ -5,9 +5,10 @@ import {
   type ExecutionCaseResult,
   type ExecutionReport,
 } from '../../shared/pipeline'
+import type { Id } from '../../convex/_generated/dataModel'
 
 interface WorkerAttackCase extends AttackCaseTemplate {
-  _id: string
+  _id: Id<'attackCases'>
 }
 
 interface WorkerPayload {

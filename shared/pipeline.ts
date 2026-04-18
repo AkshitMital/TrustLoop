@@ -1,3 +1,5 @@
+import type { Id } from '../convex/_generated/dataModel'
+
 export type SourceType = 'prompt' | 'code' | 'demo'
 export type RunStatus =
   | 'queued'
@@ -55,7 +57,7 @@ export interface AttackCaseTemplate {
 }
 
 export interface ExecutionCaseResult {
-  attackCaseId: string
+  attackCaseId: Id<'attackCases'>
   title: string
   category: AttackCategory
   severity: Severity

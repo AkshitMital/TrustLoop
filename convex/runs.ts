@@ -74,10 +74,21 @@ const evidenceItem = v.object({
 })
 
 const breakdownItem = v.object({
+  score: v.number(),
   rationale: v.string(),
   detectedFailures: v.array(failureItem),
   evidence: v.array(evidenceItem),
 })
+
+const eventSourceValidator = v.union(
+  v.literal('client'),
+  v.literal('worker'),
+  v.literal('orchestrator'),
+  v.literal('maker'),
+  v.literal('red_team'),
+  v.literal('eval_engine'),
+  v.literal('system'),
+)
 
 function defaultTitle(sourceType: 'prompt' | 'code' | 'demo', sourceText: string) {
   if (sourceType === 'demo') {
@@ -216,6 +227,54 @@ export const createRun = mutation({
   },
 })
 
+export const logEvent = mutation({
+  args: {
+    runId: v.id('runs'),
+    stage: v.string(),
+    source: v.optional(eventSourceValidator),
+    versionNumber: v.optional(v.number()),
+    title: v.string(),
+    detail: v.string(),
+    debugData: v.optional(v.string()),
+    severity: v.union(v.literal('info'), v.literal('warning'), v.literal('error')),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert('runEvents', {
+      ...args,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+export const reportRunError = mutation({
+  args: {
+    runId: v.id('runs'),
+    stage: v.string(),
+    title: v.string(),
+    detail: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now()
+
+    await ctx.db.patch(args.runId, {
+      status: 'error',
+      updatedAt: now,
+    })
+
+    await ctx.db.insert('runEvents', {
+      runId: args.runId,
+      stage: args.stage,
+      source: 'client',
+      title: args.title,
+      detail: args.detail,
+      debugData: undefined,
+      versionNumber: undefined,
+      severity: 'error',
+      createdAt: now,
+    })
+  },
+})
+
 export const getRunForBootstrap = internalQuery({
   args: {
     runId: v.id('runs'),
@@ -299,8 +358,11 @@ export const appendEvent = internalMutation({
   args: {
     runId: v.id('runs'),
     stage: v.string(),
+    source: v.optional(eventSourceValidator),
+    versionNumber: v.optional(v.number()),
     title: v.string(),
     detail: v.string(),
+    debugData: v.optional(v.string()),
     severity: v.union(v.literal('info'), v.literal('warning'), v.literal('error')),
   },
   handler: async (ctx, args) => {

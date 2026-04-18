@@ -102,8 +102,11 @@ export interface RunEventDoc {
   _creationTime: number
   runId: RunId
   stage: string
+  source?: 'client' | 'worker' | 'orchestrator' | 'maker' | 'red_team' | 'eval_engine' | 'system'
+  versionNumber?: number
   title: string
   detail: string
+  debugData?: string
   severity: 'info' | 'warning' | 'error'
   createdAt: number
 }

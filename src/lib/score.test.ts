@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import type { Id } from '../../convex/_generated/dataModel'
 import {
   buildInitialArtifacts,
   buildPatchedArtifacts,
   scoreExecution,
   type ExecutionReport,
 } from '../../shared/pipeline'
+
+function attackCaseId(value: string) {
+  return value as Id<'attackCases'>
+}
 
 describe('shared trust pipeline helpers', () => {
   it('creates the seeded sanitize scenario for demo runs', () => {
@@ -40,7 +45,7 @@ describe('shared trust pipeline helpers', () => {
       notes: [],
       attackResults: [
         {
-          attackCaseId: 'case-1',
+          attackCaseId: attackCaseId('case-1'),
           title: 'Undefined payload',
           category: 'null_undefined',
           severity: 'high',
@@ -48,7 +53,7 @@ describe('shared trust pipeline helpers', () => {
           durationMs: 1.2,
         },
         {
-          attackCaseId: 'case-2',
+          attackCaseId: attackCaseId('case-2'),
           title: 'Injection-like string',
           category: 'injection_like',
           severity: 'high',
@@ -56,7 +61,7 @@ describe('shared trust pipeline helpers', () => {
           durationMs: 1.1,
         },
         {
-          attackCaseId: 'case-3',
+          attackCaseId: attackCaseId('case-3'),
           title: 'Large payload clamp',
           category: 'large_payload',
           severity: 'medium',

@@ -165,7 +165,7 @@ export function RunDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Stage feed" eyebrow="Loop visibility">
+          <SectionCard title="Pipeline log" eyebrow="Loop visibility">
             <StageFeed events={detail.events} />
           </SectionCard>
         </div>

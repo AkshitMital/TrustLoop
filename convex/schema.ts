@@ -74,10 +74,21 @@ const evidenceItem = v.object({
 })
 
 const breakdownItem = v.object({
+  score: v.number(),
   rationale: v.string(),
   detectedFailures: v.array(failureItem),
   evidence: v.array(evidenceItem),
 })
+
+const eventSource = v.union(
+  v.literal('client'),
+  v.literal('worker'),
+  v.literal('orchestrator'),
+  v.literal('maker'),
+  v.literal('red_team'),
+  v.literal('eval_engine'),
+  v.literal('system'),
+)
 
 export default defineSchema({
   runs: defineTable({
@@ -170,8 +181,11 @@ export default defineSchema({
   runEvents: defineTable({
     runId: v.id('runs'),
     stage: v.string(),
+    source: v.optional(eventSource),
+    versionNumber: v.optional(v.number()),
     title: v.string(),
     detail: v.string(),
+    debugData: v.optional(v.string()),
     severity: v.union(v.literal('info'), v.literal('warning'), v.literal('error')),
     createdAt: v.number(),
   })

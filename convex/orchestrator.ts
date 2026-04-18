@@ -45,11 +45,28 @@ const executionReportValidator = v.object({
   }),
 })
 
+type BootstrapRunResult = {
+  versionNumber: number
+  caseCount?: number
+}
+
+type ProcessExecutionResult =
+  | {
+      status: 'awaiting_execution'
+      versionNumber: number
+    }
+  | {
+      status: 'completed'
+      versionNumber: number
+      overallScore: number
+      passFail: 'pass' | 'fail'
+    }
+
 export const bootstrapRun = action({
   args: {
     runId: v.id('runs'),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<BootstrapRunResult> => {
     const run = await ctx.runQuery(internal.runs.getRunForBootstrap, {
       runId: args.runId,
     })
@@ -77,6 +94,8 @@ export const bootstrapRun = action({
     await ctx.runMutation(internal.runs.appendEvent, {
       runId: args.runId,
       stage: 'generating',
+      source: 'maker',
+      versionNumber: 1,
       title: 'Maker draft ready',
       detail: draft.changeSummary,
       severity: 'info',
@@ -94,8 +113,18 @@ export const bootstrapRun = action({
     await ctx.runMutation(internal.runs.appendEvent, {
       runId: args.runId,
       stage: 'attacking',
+      source: 'red_team',
+      versionNumber: 1,
       title: `Red Team generated ${draft.cases.length} attack cases`,
       detail: 'The current version is ready for constrained execution in the browser worker.',
+      debugData: JSON.stringify(
+        {
+          caseTitles: draft.cases.map((caseItem) => caseItem.title),
+          categories: draft.cases.map((caseItem) => caseItem.category),
+        },
+        null,
+        2,
+      ),
       severity: 'info',
     })
 
@@ -112,125 +141,194 @@ export const processExecution = action({
     versionNumber: v.number(),
     execution: executionReportValidator,
   },
-  handler: async (ctx, args) => {
-    const context = await ctx.runQuery(internal.runs.getExecutionContext, {
-      runId: args.runId,
-      versionNumber: args.versionNumber,
-    })
-
-    if (!context) {
-      throw new Error('Execution context not found.')
-    }
-
-    await ctx.runMutation(internal.runs.setRunStatus, {
-      runId: args.runId,
-      status: 'evaluating',
-    })
-
-    const evaluation = scoreExecution(
-      context.version.code,
-      args.execution as ExecutionReport,
-    )
-
-    await ctx.runMutation(internal.runs.saveEvaluation, {
-      runId: args.runId,
-      versionNumber: args.versionNumber,
-      mode: args.execution.mode,
-      correctnessScore: evaluation.correctnessScore,
-      robustnessScore: evaluation.robustnessScore,
-      securityScore: evaluation.securityScore,
-      performanceScore: evaluation.performanceScore,
-      codeQualityScore: evaluation.codeQualityScore,
-      overallScore: evaluation.overallScore,
-      summary: evaluation.summary,
-      detectedFailures: evaluation.detectedFailures,
-      evidence: evaluation.evidence,
-      breakdown: {
-        correctness: evaluation.perCategory.correctness,
-        robustness: evaluation.perCategory.robustness,
-        security: evaluation.perCategory.security,
-        performance: evaluation.perCategory.performance,
-        codeQuality: evaluation.perCategory.codeQuality,
-      },
-      attackResults: args.execution.attackResults.map((result) => ({
-        attackCaseId: result.attackCaseId,
-        result: result.result,
-        durationMs: result.durationMs,
-        outputSummary: result.outputSummary,
-        errorMessage: result.errorMessage,
-      })),
-    })
-
-    await ctx.runMutation(internal.runs.appendEvent, {
-      runId: args.runId,
-      stage: 'evaluating',
-      title: `Version ${args.versionNumber} scored ${evaluation.overallScore}`,
-      detail: evaluation.summary,
-      severity: evaluation.passFail === 'pass' ? 'info' : 'warning',
-    })
-
-    if (args.versionNumber === 1 && evaluation.passFail === 'fail') {
-      await ctx.runMutation(internal.runs.setRunStatus, {
+  handler: async (ctx, args): Promise<ProcessExecutionResult> => {
+    try {
+      const context = await ctx.runQuery(internal.runs.getExecutionContext, {
         runId: args.runId,
-        status: 'repairing',
+        versionNumber: args.versionNumber,
       })
 
-      const scenario = inferScenarioFromText(
-        `${context.run.title}\n${context.run.sourceText}\n${context.version.code}`,
-      )
-      const patch = buildPatchedArtifacts(
-        scenario,
-        context.version.code,
-        evaluation.detectedFailures,
-      )
+      if (!context) {
+        throw new Error('Execution context not found.')
+      }
 
-      await ctx.runMutation(internal.runs.createPatchedVersion, {
+      await ctx.runMutation(internal.runs.setRunStatus, {
         runId: args.runId,
-        fromVersionNumber: 1,
-        toVersionNumber: 2,
-        code: patch.code,
-        changeSummary: patch.changeSummary,
-        issueSummary: patch.issueSummary,
-        suggestion: patch.suggestion,
-        cases: patch.cases,
+        status: 'evaluating',
       })
 
       await ctx.runMutation(internal.runs.appendEvent, {
         runId: args.runId,
-        stage: 'repairing',
-        title: 'Maker patch ready',
-        detail: patch.changeSummary,
+        stage: 'evaluating',
+        source: 'eval_engine',
+        versionNumber: args.versionNumber,
+        title: `Evaluating version ${args.versionNumber}`,
+        detail: `Browser worker submitted ${args.execution.summary.total} attack results in ${args.execution.mode.replaceAll('_', ' ')} mode.`,
+        debugData: JSON.stringify(
+          {
+            mode: args.execution.mode,
+            entryPoint: args.execution.entryPoint,
+            summary: args.execution.summary,
+            notes: args.execution.notes,
+          },
+          null,
+          2,
+        ),
         severity: 'info',
       })
 
-      return {
-        status: 'awaiting_execution',
-        versionNumber: 2,
+      const evaluation = scoreExecution(
+        context.version.code,
+        args.execution as ExecutionReport,
+      )
+
+      await ctx.runMutation(internal.runs.saveEvaluation, {
+        runId: args.runId,
+        versionNumber: args.versionNumber,
+        mode: args.execution.mode,
+        correctnessScore: evaluation.correctnessScore,
+        robustnessScore: evaluation.robustnessScore,
+        securityScore: evaluation.securityScore,
+        performanceScore: evaluation.performanceScore,
+        codeQualityScore: evaluation.codeQualityScore,
+        overallScore: evaluation.overallScore,
+        summary: evaluation.summary,
+        detectedFailures: evaluation.detectedFailures,
+        evidence: evaluation.evidence,
+        breakdown: {
+          correctness: evaluation.perCategory.correctness,
+          robustness: evaluation.perCategory.robustness,
+          security: evaluation.perCategory.security,
+          performance: evaluation.perCategory.performance,
+          codeQuality: evaluation.perCategory.codeQuality,
+        },
+        attackResults: args.execution.attackResults.map((result) => ({
+          attackCaseId: result.attackCaseId,
+          result: result.result,
+          durationMs: result.durationMs,
+          outputSummary: result.outputSummary,
+          errorMessage: result.errorMessage,
+        })),
+      })
+
+      await ctx.runMutation(internal.runs.appendEvent, {
+        runId: args.runId,
+        stage: 'evaluating',
+        source: 'eval_engine',
+        versionNumber: args.versionNumber,
+        title: `Version ${args.versionNumber} scored ${evaluation.overallScore}`,
+        detail: evaluation.summary,
+        debugData: JSON.stringify(
+          {
+            overallScore: evaluation.overallScore,
+            passFail: evaluation.passFail,
+            detectedFailures: evaluation.detectedFailures.map((failure) => ({
+              title: failure.title,
+              severity: failure.severity,
+              category: failure.category,
+            })),
+          },
+          null,
+          2,
+        ),
+        severity: evaluation.passFail === 'pass' ? 'info' : 'warning',
+      })
+
+      if (args.versionNumber === 1 && evaluation.passFail === 'fail') {
+        await ctx.runMutation(internal.runs.setRunStatus, {
+          runId: args.runId,
+          status: 'repairing',
+        })
+
+        const scenario = inferScenarioFromText(
+          `${context.run.title}\n${context.run.sourceText}\n${context.version.code}`,
+        )
+        const patch = buildPatchedArtifacts(
+          scenario,
+          context.version.code,
+          evaluation.detectedFailures,
+        )
+
+        await ctx.runMutation(internal.runs.createPatchedVersion, {
+          runId: args.runId,
+          fromVersionNumber: 1,
+          toVersionNumber: 2,
+          code: patch.code,
+          changeSummary: patch.changeSummary,
+          issueSummary: patch.issueSummary,
+          suggestion: patch.suggestion,
+          cases: patch.cases,
+        })
+
+        await ctx.runMutation(internal.runs.appendEvent, {
+          runId: args.runId,
+          stage: 'repairing',
+          source: 'maker',
+          versionNumber: 2,
+          title: 'Maker patch ready',
+          detail: patch.changeSummary,
+          debugData: JSON.stringify(
+            {
+              issueSummary: patch.issueSummary,
+              suggestion: patch.suggestion,
+            },
+            null,
+            2,
+          ),
+          severity: 'info',
+        })
+
+        return {
+          status: 'awaiting_execution',
+          versionNumber: 2,
+        }
       }
-    }
 
-    await ctx.runMutation(internal.runs.completeRun, {
-      runId: args.runId,
-      passFail: evaluation.passFail,
-      currentScore: evaluation.overallScore,
-    })
+      await ctx.runMutation(internal.runs.completeRun, {
+        runId: args.runId,
+        passFail: evaluation.passFail,
+        currentScore: evaluation.overallScore,
+      })
 
-    await ctx.runMutation(internal.runs.appendEvent, {
-      runId: args.runId,
-      stage: 'completed',
-      title:
-        evaluation.passFail === 'pass'
-          ? 'Run completed with a passing score'
+      await ctx.runMutation(internal.runs.appendEvent, {
+        runId: args.runId,
+        stage: 'completed',
+        source: 'system',
+        versionNumber: args.versionNumber,
+        title:
+          evaluation.passFail === 'pass'
+            ? 'Run completed with a passing score'
           : 'Run completed with remaining failures',
-      detail: `Final score ${evaluation.overallScore}.`,
-      severity: evaluation.passFail === 'pass' ? 'info' : 'warning',
-    })
+        detail: `Final score ${evaluation.overallScore}.`,
+        severity: evaluation.passFail === 'pass' ? 'info' : 'warning',
+      })
 
-    return {
-      status: 'completed',
-      versionNumber: args.versionNumber,
-      overallScore: evaluation.overallScore,
-      passFail: evaluation.passFail,
+      return {
+        status: 'completed',
+        versionNumber: args.versionNumber,
+        overallScore: evaluation.overallScore,
+        passFail: evaluation.passFail,
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown evaluation failure.'
+
+      await ctx.runMutation(internal.runs.setRunStatus, {
+        runId: args.runId,
+        status: 'error',
+      })
+
+      await ctx.runMutation(internal.runs.appendEvent, {
+        runId: args.runId,
+        stage: 'error',
+        source: 'eval_engine',
+        versionNumber: args.versionNumber,
+        title: 'Evaluation failed',
+        detail: message,
+        severity: 'error',
+      })
+
+      throw error
     }
   },
 })
