@@ -1,13 +1,17 @@
+import { InlineSpinner } from './inline-spinner'
+
 interface ScorePillProps {
   score?: number | null
   label?: string
   emphasize?: boolean
+  busy?: boolean
 }
 
 export function ScorePill({
   score,
   label = 'overall score',
   emphasize = false,
+  busy = false,
 }: ScorePillProps) {
   const tone =
     score == null
@@ -24,19 +28,30 @@ export function ScorePill({
       : score >= 80
         ? 'text-emerald-300'
         : score >= 60
-          ? 'text-amber-300'
-          : 'text-rose-300'
+        ? 'text-amber-300'
+        : 'text-rose-300'
+
+  const spinnerTone =
+    score == null ? 'light' : score >= 80 ? 'accent' : score >= 60 ? 'amber' : 'light'
 
   return (
     <div
-      className={`rounded-3xl border bg-gradient-to-br px-5 py-4 transition-all duration-300 ${tone} ${
-        emphasize ? 'min-w-40' : ''
-      }`}
+      className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br px-5 py-4 transition-all duration-300 ${
+        busy ? 'panel-busy' : ''
+      } ${tone} ${emphasize ? 'min-w-40' : ''}`}
     >
-      <div className={`font-semibold tracking-tight ${emphasize ? 'text-4xl' : 'text-2xl'} ${scoreColor}`}>
-        {score == null ? '—' : score}
+      <div className="flex items-start justify-between gap-4">
+        <div
+          className={`font-semibold tracking-tight ${emphasize ? 'text-4xl' : 'text-2xl'} ${scoreColor}`}
+        >
+          {score == null ? '—' : score}
+        </div>
+        {busy ? <InlineSpinner size={emphasize ? 'md' : 'sm'} tone={spinnerTone} /> : null}
       </div>
-      <p className="text-xs uppercase tracking-[0.28em] text-slate-400">{label}</p>
+      <div className="mt-1 flex items-center gap-2">
+        {busy ? <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" /> : null}
+        <p className="text-xs uppercase tracking-[0.28em] text-slate-400">{label}</p>
+      </div>
     </div>
   )
 }

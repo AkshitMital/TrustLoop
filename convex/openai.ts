@@ -20,6 +20,7 @@ declare const process: {
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = process.env.OPENAI_TRUSTLOOP_MODEL?.trim() || "gpt-5-mini";
+const OPENAI_REQUEST_TIMEOUT_MS = 30000;
 
 const ATTACK_CATEGORIES: AttackCategory[] = [
   "null_undefined",
@@ -245,31 +246,47 @@ async function callStructuredOutput<T>(options: {
     throw new Error("OPENAI_API_KEY is not configured.");
   }
 
-  const response = await fetch(OPENAI_RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      instructions: options.instructions,
-      input: options.input,
-      max_output_tokens: options.maxOutputTokens,
-      store: false,
-      reasoning: {
-        effort: "low",
+  let response: Response;
+
+  try {
+    response = await fetch(OPENAI_RESPONSES_URL, {
+      method: "POST",
+      signal: AbortSignal.timeout(OPENAI_REQUEST_TIMEOUT_MS),
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-      text: {
-        format: {
-          type: "json_schema",
-          name: options.schemaName,
-          strict: true,
-          schema: options.schema,
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        instructions: options.instructions,
+        input: options.input,
+        max_output_tokens: options.maxOutputTokens,
+        store: false,
+        reasoning: {
+          effort: "low",
         },
-      },
-    }),
-  });
+        text: {
+          format: {
+            type: "json_schema",
+            name: options.schemaName,
+            strict: true,
+            schema: options.schema,
+          },
+        },
+      }),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
+      throw new Error(
+        `OpenAI request timed out after ${OPENAI_REQUEST_TIMEOUT_MS}ms.`,
+      );
+    }
+
+    throw error;
+  }
 
   if (!response.ok) {
     const detail = await response.text();
@@ -319,11 +336,83 @@ function repairFocusForVersion(scenario: ScenarioKey, targetVersionNumber: numbe
   return "Perform the final security hardening pass. Remove raw script tags while preserving the earlier safety and length protections.";
 }
 
-function parseJsonLiteral(
+function parseArrayFillExpression(trimmed: string): unknown[] | null {
+  const arrayFillMatch = trimmed.match(
+    /^(?:new\s+)?Array\((\d+)\)\.fill\((.+)\)$/,
+  );
+
+  if (!arrayFillMatch) {
+    return null;
+  }
+
+  const count = Number(arrayFillMatch[1]);
+  if (!Number.isInteger(count) || count < 0 || count > 20000) {
+    throw new Error("Array fill expression count is out of bounds.");
+  }
+
+  const fillValue = parseJsonLiteral(arrayFillMatch[2], "Array.fill value");
+  return Array.from({ length: count }, () => fillValue);
+}
+
+function parseSpecialNumberLiterals(trimmed: string): unknown | null {
+  if (!/[Nn]a[Nn]|Infinity/.test(trimmed)) {
+    return null;
+  }
+
+  const normalized = trimmed
+    .replace(/-Infinity/g, "null")
+    .replace(/\bInfinity\b/g, "null")
+    .replace(/\bNaN\b/g, "null");
+
+  return JSON.parse(normalized) as unknown;
+}
+
+function parseCommaSeparatedNumbers(trimmed: string): number[] | null {
+  if (!/^-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)+$/.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed.split(",").map((value) => Number(value.trim()));
+}
+
+function parseNarratedLargeArray(trimmed: string): number[] | null {
+  const repeatedValueMatch = trimmed.match(
+    /^(?:array of\s+)?(\d+)\s+(?:copies of|instances of|times)?\s*(?:the value\s+)?(-?\d+(?:\.\d+)?)$/i,
+  );
+
+  if (repeatedValueMatch) {
+    const count = Number(repeatedValueMatch[1]);
+    const repeatedValue = Number(repeatedValueMatch[2]);
+
+    if (!Number.isInteger(count) || count < 0 || count > 20000) {
+      throw new Error("Narrated array count is out of bounds.");
+    }
+
+    return Array.from({ length: count }, () => repeatedValue);
+  }
+
+  const onesMatch = trimmed.match(
+    /^(?:array of\s+)?(\d+)\s+(ones|zeros)$/i,
+  );
+
+  if (!onesMatch) {
+    return null;
+  }
+
+  const count = Number(onesMatch[1]);
+  if (!Number.isInteger(count) || count < 0 || count > 20000) {
+    throw new Error("Narrated ones/zeros count is out of bounds.");
+  }
+
+  const repeatedValue = onesMatch[2].toLowerCase() === "ones" ? 1 : 0;
+  return Array.from({ length: count }, () => repeatedValue);
+}
+
+export function parseJsonLiteral(
   rawValue: string,
   fieldName: string,
   allowEmpty = false,
-) {
+): unknown {
   const trimmed = rawValue.trim();
   if (!trimmed) {
     if (allowEmpty) {
@@ -335,6 +424,30 @@ function parseJsonLiteral(
   try {
     return JSON.parse(trimmed) as unknown;
   } catch {
+    const arrayFillValue = parseArrayFillExpression(trimmed);
+    if (arrayFillValue !== null) {
+      return arrayFillValue;
+    }
+
+    const commaSeparatedNumbers = parseCommaSeparatedNumbers(trimmed);
+    if (commaSeparatedNumbers !== null) {
+      return commaSeparatedNumbers;
+    }
+
+    const narratedLargeArray = parseNarratedLargeArray(trimmed);
+    if (narratedLargeArray !== null) {
+      return narratedLargeArray;
+    }
+
+    try {
+      const parsedSpecialNumberValue = parseSpecialNumberLiterals(trimmed);
+      if (parsedSpecialNumberValue !== null) {
+        return parsedSpecialNumberValue;
+      }
+    } catch {
+      // Continue to the remaining heuristics.
+    }
+
     const repeatedStringMatch = trimmed.match(
       /^(("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))\.repeat\((\d+)\)$/,
     );

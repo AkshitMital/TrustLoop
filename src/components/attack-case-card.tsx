@@ -1,3 +1,4 @@
+import { InlineSpinner } from './inline-spinner'
 import type { AttackCaseDoc } from '../types/app'
 
 const severityTone = {
@@ -15,14 +16,29 @@ const resultTone = {
 
 interface AttackCaseCardProps {
   attackCase: AttackCaseDoc
+  isActive?: boolean
+  isDimmed?: boolean
+  delayMs?: number
 }
 
-export function AttackCaseCard({ attackCase }: AttackCaseCardProps) {
+export function AttackCaseCard({
+  attackCase,
+  isActive = false,
+  isDimmed = false,
+  delayMs = 0,
+}: AttackCaseCardProps) {
   return (
-    <article className="group rounded-2xl border border-white/5 bg-white/[0.02] p-4 transition-all duration-200 hover:border-white/10 hover:bg-white/[0.04]">
+    <article
+      style={{ animationDelay: `${delayMs}ms` }}
+      className={`group motion-card-reveal rounded-2xl border p-4 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04] ${
+        isActive
+          ? 'attack-card-live border-cyan-300/18 bg-white/[0.05]'
+          : 'border-white/5 bg-white/[0.02]'
+      } ${isDimmed ? 'opacity-60' : ''}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-medium text-white group-hover:text-cyan-100 transition-colors">
+          <h3 className="truncate font-medium text-white transition-colors group-hover:text-cyan-100">
             {attackCase.title}
           </h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.26em] text-slate-500">
@@ -35,11 +51,18 @@ export function AttackCaseCard({ attackCase }: AttackCaseCardProps) {
           >
             {attackCase.severity}
           </span>
-          <span
-            className={`rounded-full px-2.5 py-1 text-[10px] font-medium ring-1 ${resultTone[attackCase.result]}`}
-          >
-            {attackCase.result.replaceAll('_', ' ')}
-          </span>
+          {attackCase.result === 'not_run' ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-slate-300 ring-1 ring-white/10">
+              <InlineSpinner size="xs" tone="light" />
+              pending
+            </span>
+          ) : (
+            <span
+              className={`rounded-full px-2.5 py-1 text-[10px] font-medium ring-1 ${resultTone[attackCase.result]}`}
+            >
+              {attackCase.result.replaceAll('_', ' ')}
+            </span>
+          )}
         </div>
       </div>
 

@@ -101,6 +101,44 @@ Build the frontend:
 npm run build
 ```
 
+## Deploying to Vercel
+
+This repo includes a [vercel.json](/Users/akshitmittal/Desktop/Codex%20Hackathon/vercel.json) that is ready for a Convex-backed Vercel deploy:
+
+- the build command runs `npx convex deploy` first so your Convex functions are deployed together with the frontend
+- `--cmd-url-env-var-name VITE_CONVEX_URL` explicitly injects the production Convex URL into the Vite build
+- a catch-all rewrite sends routed URLs like `/runs/123` back to the SPA entrypoint
+
+### One-time setup
+
+1. Push this repo to GitHub, GitLab, or Bitbucket.
+2. In the Convex dashboard, create or open your production deployment.
+3. In that Convex production deployment, generate a Production Deploy Key.
+4. In Vercel, import the repo as a new project.
+5. Add an environment variable named `CONVEX_DEPLOY_KEY` in Vercel and paste the Convex Production Deploy Key.
+6. Deploy.
+
+### Production environment variables
+
+The frontend only needs `VITE_CONVEX_URL`, and the Vercel build gets that automatically from `npx convex deploy`.
+
+If you want OpenAI-backed Maker and Red Team stages in production, also set these in the Convex production deployment environment:
+
+```bash
+npx convex env set OPENAI_API_KEY your_openai_api_key --prod
+npx convex env set OPENAI_TRUSTLOOP_MODEL gpt-5-mini --prod
+```
+
+Do not rely on `.env.local` for production secrets. `.env.local` is local-only and should stay out of git.
+
+### Preview deployments
+
+If you want Vercel Preview Deployments to create matching Convex preview backends:
+
+1. Generate a Preview Deploy Key in the Convex dashboard.
+2. Add `CONVEX_DEPLOY_KEY` in Vercel again, but scope that value to the Preview environment.
+3. Redeploy a preview branch or open a pull request.
+
 ## Important files
 
 - `src/` for the React application

@@ -1,8 +1,9 @@
 export function SetupPage() {
   return (
-    <div className="min-h-screen px-4 py-6 sm:px-6">
+    <div className="app-frame min-h-screen px-4 py-6 sm:px-6">
+      <div className="app-backdrop" />
       <div className="mx-auto max-w-4xl space-y-6">
-        <section className="glass-strong rounded-[2rem] p-8 shadow-2xl shadow-black/30">
+        <section className="glass-strong page-enter rounded-[2rem] p-8 shadow-2xl shadow-black/30">
           <p className="mb-3 inline-flex rounded-full bg-amber-500/12 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-amber-100 ring-1 ring-amber-400/20">
             Convex setup required
           </p>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { SourceType } from '../../shared/pipeline'
+import { InlineSpinner } from '../components/inline-spinner'
 import { SectionCard } from '../components/section-card'
 import { IntensityControl } from '../components/intensity-control'
 import { useRunLauncher } from '../hooks/use-run-launcher'
@@ -41,7 +42,11 @@ export function NewRunPage() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_22rem]">
-      <SectionCard title="Create a new evaluation run" eyebrow="New run">
+      <SectionCard
+        title="Create a new evaluation run"
+        eyebrow="New run"
+        busy={isLaunching}
+      >
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="flex flex-wrap gap-2">
             {(['prompt', 'code'] as const).map((value) => {
@@ -50,12 +55,13 @@ export function NewRunPage() {
                 <button
                   key={value}
                   type="button"
+                  disabled={isLaunching}
                   onClick={() => setSourceType(value)}
                   className={`rounded-full px-4 py-2 text-sm transition ${
                     active
                       ? 'bg-cyan-500/15 text-cyan-100 ring-1 ring-cyan-400/25'
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
                   {value}
                 </button>
@@ -68,6 +74,7 @@ export function NewRunPage() {
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
+              disabled={isLaunching}
               placeholder="Checkout payload hardening run"
               className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
             />
@@ -86,6 +93,7 @@ export function NewRunPage() {
               <textarea
                 value={sourceText}
                 onChange={(event) => setSourceText(event.target.value)}
+                disabled={isLaunching}
                 rows={sourceType === 'prompt' ? 8 : 16}
                 className="min-h-60 w-full rounded-3xl border border-white/10 bg-black/25 px-4 py-4 font-[var(--mono)] text-sm leading-7 text-slate-100 outline-none transition focus:border-cyan-300/40"
               />
@@ -109,8 +117,11 @@ export function NewRunPage() {
             <button
               type="submit"
               disabled={isLaunching}
-              className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[#ffb066] px-5 py-2.5 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+              className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--accent)] to-[#ffb066] px-5 py-2.5 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 ${
+                isLaunching ? 'button-live' : ''
+              }`}
             >
+              {isLaunching ? <InlineSpinner size="sm" tone="dark" /> : null}
               {isLaunching ? 'Launching run…' : 'Launch run'}
             </button>
             <Link
@@ -120,6 +131,12 @@ export function NewRunPage() {
               Back to dashboard
             </Link>
           </div>
+          {isLaunching ? (
+            <p className="text-sm leading-6 text-cyan-100">
+              Provisioning Maker, Red Team, and the first evaluation pass. You’ll land in
+              the cockpit as soon as the run is ready.
+            </p>
+          ) : null}
         </form>
       </SectionCard>
 

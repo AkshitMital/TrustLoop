@@ -313,6 +313,7 @@ async function processExecutionResult(
   let redTeamMode: 'openai' | 'deterministic' =
     context.run.sourceType === 'demo' ? 'deterministic' : 'openai'
   let redTeamModel: string | null = null
+  let redTeamFallbackReason: string | null = null
   let redTeamSummary =
     'The patched version is ready for backend execution in the next loop turn.'
 
@@ -325,25 +326,41 @@ async function processExecutionResult(
         failures: evaluation.detectedFailures,
         targetVersionNumber: nextVersionNumber,
       })
-      const redTeam = await generateRedTeamCasesWithOpenAI({
-        title: context.run.title,
-        sourceType: context.run.sourceType,
-        sourceText: context.run.sourceText,
-        code: makerRepair.code,
-      })
 
       patch = {
         code: makerRepair.code,
         changeSummary: makerRepair.changeSummary,
         issueSummary: makerRepair.issueSummary,
         suggestion: makerRepair.suggestion,
-        cases: redTeam.cases,
+        cases: deterministicPatch.cases,
       }
       repairMode = 'openai'
       repairModel = makerRepair.model
-      redTeamMode = 'openai'
-      redTeamModel = redTeam.model
-      redTeamSummary = redTeam.summary
+
+      try {
+        const redTeam = await generateRedTeamCasesWithOpenAI({
+          title: context.run.title,
+          sourceType: context.run.sourceType,
+          sourceText: context.run.sourceText,
+          code: makerRepair.code,
+        })
+
+        patch = {
+          ...patch,
+          cases: redTeam.cases,
+        }
+        redTeamMode = 'openai'
+        redTeamModel = redTeam.model
+        redTeamSummary = redTeam.summary
+      } catch (error) {
+        redTeamMode = 'deterministic'
+        redTeamFallbackReason =
+          error instanceof Error
+            ? error.message
+            : 'Unknown OpenAI Red Team repair error.'
+        redTeamSummary =
+          'The Maker patch came from OpenAI, but the attack pack fell back to deterministic cases for this iteration.'
+      }
     } catch (error) {
       patch = deterministicPatch
       repairMode = 'deterministic'
@@ -369,6 +386,28 @@ async function processExecutionResult(
       debugData: JSON.stringify(
         {
           reason: repairFallbackReason,
+        },
+        null,
+        2,
+      ),
+      severity: 'warning',
+    })
+  }
+
+  if (redTeamFallbackReason) {
+    await ctx.runMutation(internal.runs.appendEvent, {
+      runId: args.runId,
+      stage: 'attacking',
+      source: 'system',
+      versionNumber: nextVersionNumber,
+      title: 'OpenAI Red Team fallback',
+      detail:
+        'The Maker patch stayed on the OpenAI path, but attack-case generation fell back to deterministic cases for this iteration.',
+      debugData: JSON.stringify(
+        {
+          reason: redTeamFallbackReason,
+          repairMode,
+          repairModel,
         },
         null,
         2,
@@ -530,17 +569,12 @@ export const bootstrapRun = action({
     let redTeamSummary =
       'The current version is queued for backend execution in Convex.'
     let fallbackReason: string | null = null
+    let redTeamFallbackReason: string | null = null
 
     if (hasOpenAIConfig() && run.sourceType !== 'demo') {
-      try {
-        if (run.sourceType === 'code') {
+      if (run.sourceType === 'code') {
+        try {
           const code = ensureExported(run.sourceText)
-          const redTeam = await generateRedTeamCasesWithOpenAI({
-            title: run.title,
-            sourceType: run.sourceType,
-            sourceText: run.sourceText,
-            code,
-          })
 
           draft = {
             scenario: inferScenarioFromText(
@@ -548,23 +582,48 @@ export const bootstrapRun = action({
             ),
             code,
             changeSummary: 'User-supplied code was registered as version 1 for evaluation.',
-            cases: redTeam.cases,
+            cases: deterministicDraft.cases,
           }
           makerMode = 'deterministic'
-          redTeamMode = 'openai'
-          redTeamModel = redTeam.model
-          redTeamSummary = redTeam.summary
-        } else {
+          try {
+            const redTeam = await generateRedTeamCasesWithOpenAI({
+              title: run.title,
+              sourceType: run.sourceType,
+              sourceText: run.sourceText,
+              code,
+            })
+
+            draft = {
+              ...draft,
+              cases: redTeam.cases,
+            }
+            redTeamMode = 'openai'
+            redTeamModel = redTeam.model
+            redTeamSummary = redTeam.summary
+          } catch (error) {
+            redTeamMode = 'deterministic'
+            redTeamFallbackReason =
+              error instanceof Error
+                ? error.message
+                : 'Unknown OpenAI Red Team bootstrap error.'
+            redTeamSummary =
+              'The submitted code stayed local, and deterministic attack cases were substituted for this bootstrap iteration.'
+          }
+        } catch (error) {
+          makerMode = 'deterministic'
+          redTeamMode = 'deterministic'
+          fallbackReason =
+            error instanceof Error
+              ? error.message
+              : 'Unknown OpenAI bootstrap error.'
+          draft = deterministicDraft
+        }
+      } else {
+        try {
           const makerDraft = await generateMakerDraftWithOpenAI({
             sourceType: run.sourceType,
             title: run.title,
             sourceText: run.sourceText,
-          })
-          const redTeam = await generateRedTeamCasesWithOpenAI({
-            title: run.title,
-            sourceType: run.sourceType,
-            sourceText: run.sourceText,
-            code: makerDraft.code,
           })
 
           draft = {
@@ -573,20 +632,41 @@ export const bootstrapRun = action({
             ),
             code: makerDraft.code,
             changeSummary: makerDraft.changeSummary,
-            cases: redTeam.cases,
+            cases: deterministicDraft.cases,
           }
           makerMode = 'openai'
-          redTeamMode = 'openai'
           makerModel = makerDraft.model
-          redTeamModel = redTeam.model
-          redTeamSummary = redTeam.summary
+          try {
+            const redTeam = await generateRedTeamCasesWithOpenAI({
+              title: run.title,
+              sourceType: run.sourceType,
+              sourceText: run.sourceText,
+              code: makerDraft.code,
+            })
+
+            draft = {
+              ...draft,
+              cases: redTeam.cases,
+            }
+            redTeamMode = 'openai'
+            redTeamModel = redTeam.model
+            redTeamSummary = redTeam.summary
+          } catch (error) {
+            redTeamMode = 'deterministic'
+            redTeamFallbackReason =
+              error instanceof Error
+                ? error.message
+                : 'Unknown OpenAI Red Team bootstrap error.'
+            redTeamSummary =
+              'The Maker draft came from OpenAI, but attack-case generation fell back to deterministic cases for bootstrap.'
+          }
+        } catch (error) {
+          makerMode = 'deterministic'
+          redTeamMode = 'deterministic'
+          fallbackReason =
+            error instanceof Error ? error.message : 'Unknown OpenAI bootstrap error.'
+          draft = deterministicDraft
         }
-      } catch (error) {
-        makerMode = 'deterministic'
-        redTeamMode = 'deterministic'
-        fallbackReason =
-          error instanceof Error ? error.message : 'Unknown OpenAI bootstrap error.'
-        draft = deterministicDraft
       }
     } else {
       makerMode = 'deterministic'
@@ -604,6 +684,28 @@ export const bootstrapRun = action({
         debugData: JSON.stringify(
           {
             reason: fallbackReason,
+        },
+        null,
+        2,
+      ),
+      severity: 'warning',
+    })
+    }
+
+    if (redTeamFallbackReason) {
+      await ctx.runMutation(internal.runs.appendEvent, {
+        runId: args.runId,
+        stage: 'attacking',
+        source: 'system',
+        versionNumber: 1,
+        title: 'OpenAI Red Team fallback',
+        detail:
+          'The run kept the successful Maker output, but attack-case generation fell back to deterministic cases.',
+        debugData: JSON.stringify(
+          {
+            reason: redTeamFallbackReason,
+            makerMode,
+            makerModel,
           },
           null,
           2,

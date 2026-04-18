@@ -3,20 +3,38 @@ import { formatTimestamp } from '../lib/format'
 
 interface StageFeedProps {
   events: RunEventDoc[]
+  liveVersionNumber?: number
 }
 
-export function StageFeed({ events }: StageFeedProps) {
+export function StageFeed({ events, liveVersionNumber }: StageFeedProps) {
   return (
     <div className="space-y-3">
-      {events.map((event) => (
-        <div key={event._id} className="flex gap-3 rounded-2xl border border-white/8 bg-white/[0.04] p-3">
+      {events.map((event, index) => {
+        const isLive =
+          liveVersionNumber != null &&
+          event.versionNumber === liveVersionNumber &&
+          index < 3 &&
+          event.severity !== 'error'
+
+        return (
+          <div
+            key={event._id}
+            style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+            className={`motion-card-reveal flex gap-3 rounded-2xl border p-3 transition-all duration-300 ${
+              isLive
+                ? 'border-cyan-400/20 bg-cyan-500/[0.08] shadow-[0_0_24px_rgba(91,208,255,0.10)]'
+                : 'border-white/8 bg-white/[0.04]'
+            }`}
+          >
           <div
             className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
               event.severity === 'error'
                 ? 'bg-rose-400'
                 : event.severity === 'warning'
                   ? 'bg-amber-300'
-                  : 'bg-cyan-300'
+                  : isLive
+                    ? 'bg-cyan-200 animate-pulse'
+                    : 'bg-cyan-300'
             }`}
           />
           <div className="min-w-0 flex-1">
@@ -36,8 +54,9 @@ export function StageFeed({ events }: StageFeedProps) {
               </pre>
             ) : null}
           </div>
-        </div>
-      ))}
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -57,7 +57,10 @@ export function DashboardPage() {
         <SectionCard title="Loading runs" eyebrow="Realtime query">
           <div className="space-y-3">
             {Array.from({ length: 3 }, (_, index) => (
-              <div key={index} className="h-36 animate-pulse rounded-3xl bg-white/[0.04]" />
+              <div
+                key={index}
+                className="loading-surface h-36 rounded-3xl border border-white/8"
+              />
             ))}
           </div>
         </SectionCard>

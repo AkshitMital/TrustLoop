@@ -12,11 +12,18 @@ interface RunCardProps {
 export function RunCard({ run }: RunCardProps) {
   const latestIterationNumber = run.latestVersionNumber ?? run.currentVersionNumber
   const scoreLabel = run.passFail === 'pending' ? 'current score' : 'best score'
+  const isLive =
+    run.passFail === 'pending' &&
+    run.status !== 'queued' &&
+    run.status !== 'completed' &&
+    run.status !== 'error'
 
   return (
     <Link
       to={`/runs/${run._id}`}
-      className="glass group flex flex-col gap-4 rounded-3xl p-5 transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-white/[0.07]"
+      className={`glass group relative flex flex-col gap-4 overflow-hidden rounded-3xl p-5 transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-white/[0.07] ${
+        isLive ? 'panel-busy' : ''
+      }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -57,6 +64,7 @@ export function RunCard({ run }: RunCardProps) {
         <ScorePill
           score={run.currentVersionNumber === 0 ? null : run.currentScore}
           label={scoreLabel}
+          busy={isLive}
         />
       </div>
     </Link>

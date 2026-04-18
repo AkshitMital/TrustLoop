@@ -8,10 +8,10 @@ function NavLink({ to, label }: { to: string; label: string }) {
   return (
     <Link
       to={to}
-      className={`rounded-full px-4 py-2 text-sm transition ${
+      className={`nav-pill rounded-2xl px-4 py-3 text-sm font-medium transition ${
         active
-          ? 'bg-white/10 text-white ring-1 ring-white/12'
-          : 'text-slate-400 hover:bg-white/6 hover:text-white'
+          ? 'bg-white/12 text-white ring-1 ring-cyan-300/18 shadow-[0_10px_24px_rgba(0,0,0,0.18)]'
+          : 'text-slate-300 hover:bg-white/8 hover:text-white'
       }`}
     >
       {label}
@@ -20,8 +20,11 @@ function NavLink({ to, label }: { to: string; label: string }) {
 }
 
 export function AppShell({ children }: PropsWithChildren) {
+  const location = useLocation()
+
   return (
-    <div className="min-h-screen px-4 py-5 sm:px-6">
+    <div className="app-frame min-h-screen px-4 py-5 sm:px-6">
+      <div className="app-backdrop" />
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="glass-strong overflow-hidden rounded-[2rem] p-6 shadow-2xl shadow-black/25">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -37,14 +40,23 @@ export function AppShell({ children }: PropsWithChildren) {
                 proves why, Maker patches it, and the score climbs.
               </p>
             </div>
-            <nav className="flex flex-wrap gap-2">
-              <NavLink to="/" label="Dashboard" />
-              <NavLink to="/runs/new" label="New Run" />
-            </nav>
+            <div className="glass nav-panel w-full max-w-sm rounded-[1.75rem] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+              <p className="text-sm font-semibold text-white">Control Deck</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Move between the run list and launch surface without losing the live
+                trust-loop context.
+              </p>
+              <nav className="mt-4 grid grid-cols-2 gap-3">
+                <NavLink to="/" label="Dashboard" />
+                <NavLink to="/runs/new" label="New Run" />
+              </nav>
+            </div>
           </div>
         </header>
 
-        <main>{children}</main>
+        <main key={location.pathname} className="page-enter">
+          {children}
+        </main>
       </div>
     </div>
   )

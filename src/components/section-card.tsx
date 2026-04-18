@@ -5,6 +5,8 @@ interface SectionCardProps extends PropsWithChildren {
   eyebrow?: string
   aside?: ReactNode
   className?: string
+  contentClassName?: string
+  busy?: boolean
 }
 
 export function SectionCard({
@@ -12,10 +14,16 @@ export function SectionCard({
   eyebrow,
   aside,
   className = '',
+  contentClassName = '',
+  busy = false,
   children,
 }: SectionCardProps) {
   return (
-    <section className={`glass rounded-3xl p-5 shadow-2xl shadow-black/20 ${className}`}>
+    <section
+      className={`glass relative overflow-hidden rounded-3xl p-5 shadow-2xl shadow-black/20 ${
+        busy ? 'panel-busy' : ''
+      } ${className}`}
+    >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           {eyebrow ? (
@@ -27,7 +35,7 @@ export function SectionCard({
         </div>
         {aside}
       </div>
-      {children}
+      <div className={contentClassName}>{children}</div>
     </section>
   )
 }
