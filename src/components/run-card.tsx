@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { RunListItem } from '../types/app'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, humanizeSourceType } from '../lib/format'
 import { ProviderBadge } from './provider-badge'
 import { ScorePill } from './score-pill'
 import { StatusBadge } from './status-badge'
@@ -25,22 +25,22 @@ export function RunCard({ run }: RunCardProps) {
         isLive ? 'panel-busy' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
           <p className="mb-1 text-[11px] uppercase tracking-[0.28em] text-slate-500">
-            {run.sourceType}
+            {humanizeSourceType(run.sourceType)}
           </p>
-          <h3 className="text-lg font-semibold text-white">{run.title}</h3>
+          <h3 className="break-words text-lg font-semibold text-white">{run.title}</h3>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-col md:items-end">
           <StatusBadge status={run.status} passFail={run.passFail} />
           <ProviderBadge provider={run.provider} />
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="rounded-2xl bg-white/[0.04] p-3">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(9.75rem,10.5rem)] xl:items-stretch">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="min-w-0 rounded-2xl bg-white/[0.04] p-3">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
               Latest iteration
             </p>
@@ -48,23 +48,31 @@ export function RunCard({ run }: RunCardProps) {
               {latestIterationNumber || '—'}
             </p>
           </div>
-          <div className="rounded-2xl bg-white/[0.04] p-3">
+          <div className="min-w-0 rounded-2xl bg-white/[0.04] p-3">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Updated</p>
-            <p className="mt-2 text-sm text-slate-300">{formatTimestamp(run.updatedAt)}</p>
+            <p className="mt-2 break-words text-sm leading-6 text-slate-300">
+              {formatTimestamp(run.updatedAt)}
+            </p>
           </div>
-          <div className="rounded-2xl bg-white/[0.04] p-3">
+          <div className="min-w-0 rounded-2xl bg-white/[0.04] p-3">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Language</p>
-            <p className="mt-2 text-lg font-semibold text-white">TypeScript</p>
+            <p className="mt-2 overflow-hidden text-ellipsis text-base font-semibold text-white sm:text-lg">
+              TypeScript
+            </p>
           </div>
-          <div className="rounded-2xl bg-white/[0.04] p-3">
+          <div className="min-w-0 rounded-2xl bg-white/[0.04] p-3">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Provider</p>
-            <p className="mt-2 text-sm font-medium text-white">{run.provider.label}</p>
+            <p className="mt-2 overflow-hidden text-ellipsis text-sm font-medium text-white">
+              {run.provider.label}
+            </p>
           </div>
         </div>
         <ScorePill
           score={run.currentVersionNumber === 0 ? null : run.currentScore}
           label={scoreLabel}
           busy={isLive}
+          compact
+          className="w-full xl:h-full xl:min-w-[9.75rem] xl:max-w-[10.5rem]"
         />
       </div>
     </Link>

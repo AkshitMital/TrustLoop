@@ -5,6 +5,8 @@ interface ScorePillProps {
   label?: string
   emphasize?: boolean
   busy?: boolean
+  compact?: boolean
+  className?: string
 }
 
 export function ScorePill({
@@ -12,6 +14,8 @@ export function ScorePill({
   label = 'overall score',
   emphasize = false,
   busy = false,
+  compact = false,
+  className = '',
 }: ScorePillProps) {
   const tone =
     score == null
@@ -34,15 +38,25 @@ export function ScorePill({
   const spinnerTone =
     score == null ? 'light' : score >= 80 ? 'accent' : score >= 60 ? 'amber' : 'light'
 
+  const paddingClass = compact ? 'px-4 py-3' : 'px-5 py-4'
+  const scoreSizeClass = emphasize
+    ? 'text-3xl sm:text-4xl'
+    : compact
+      ? 'text-[1.85rem] leading-none'
+      : 'text-2xl'
+  const labelClass = compact
+    ? 'text-[11px] uppercase tracking-[0.22em] text-slate-400'
+    : 'text-xs uppercase tracking-[0.28em] text-slate-400'
+
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br px-5 py-4 transition-all duration-300 ${
+      className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br transition-all duration-300 ${
         busy ? 'panel-busy' : ''
-      } ${tone} ${emphasize ? 'min-w-40' : ''}`}
+      } ${tone} ${paddingClass} ${emphasize ? 'sm:min-w-40' : ''} ${className}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div
-          className={`font-semibold tracking-tight ${emphasize ? 'text-4xl' : 'text-2xl'} ${scoreColor}`}
+          className={`min-w-0 font-semibold tracking-tight ${scoreSizeClass} ${scoreColor}`}
         >
           {score == null ? '—' : score}
         </div>
@@ -50,7 +64,9 @@ export function ScorePill({
       </div>
       <div className="mt-1 flex items-center gap-2">
         {busy ? <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" /> : null}
-        <p className="text-xs uppercase tracking-[0.28em] text-slate-400">{label}</p>
+        <p className={`min-w-0 break-words ${labelClass}`}>
+          {label}
+        </p>
       </div>
     </div>
   )

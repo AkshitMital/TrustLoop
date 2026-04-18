@@ -30,7 +30,7 @@ export function AttackCaseCard({
   return (
     <article
       style={{ animationDelay: `${delayMs}ms` }}
-      className={`group motion-card-reveal rounded-2xl border p-4 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04] ${
+      className={`group motion-card-reveal min-w-0 rounded-2xl border p-4 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04] ${
         isActive
           ? 'attack-card-live border-cyan-300/18 bg-white/[0.05]'
           : 'border-white/5 bg-white/[0.02]'
@@ -71,28 +71,30 @@ export function AttackCaseCard({
           <p className="mb-1 text-[10px] uppercase tracking-[0.26em] text-slate-500">
             Input
           </p>
-          <code className="block max-w-full overflow-hidden rounded-xl bg-black/30 px-3 py-2 text-xs text-slate-200 truncate">
+          <code className="block max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-black/30 px-3 py-2 text-xs leading-6 text-slate-200">
             {attackCase.inputPreview}
           </code>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="mb-1 text-[10px] uppercase tracking-[0.26em] text-slate-500">
             Expected outcome
           </p>
-          <p className="line-clamp-2">{attackCase.expectedOutcome}</p>
+          <p className="line-clamp-3 break-words">{attackCase.expectedOutcome}</p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="mb-1 text-[10px] uppercase tracking-[0.26em] text-slate-500">
             Why this matters
           </p>
-          <p className="line-clamp-2">{attackCase.whyThisCaseMatters}</p>
+          <p className="line-clamp-3 break-words">{attackCase.whyThisCaseMatters}</p>
         </div>
         {attackCase.evidence ? (
-          <div>
+          <div className="min-w-0">
             <p className="mb-1 text-[10px] uppercase tracking-[0.26em] text-slate-500">
               Evidence
             </p>
-            <p className="line-clamp-2 text-amber-100">{attackCase.evidence}</p>
+            <p className="max-h-28 overflow-y-auto whitespace-pre-wrap break-all rounded-xl bg-amber-500/8 px-3 py-2 font-[var(--mono)] text-xs leading-6 text-amber-100">
+              {attackCase.evidence}
+            </p>
           </div>
         ) : null}
       </div>

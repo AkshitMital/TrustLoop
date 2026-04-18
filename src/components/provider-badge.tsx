@@ -16,7 +16,7 @@ export function ProviderBadge({ provider }: ProviderBadgeProps) {
 
   return (
     <span
-      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${tone}`}
+      className={`inline-flex max-w-full items-center justify-center rounded-full px-3 py-1 text-center text-xs font-medium ring-1 ${tone}`}
       title={provider.detail}
     >
       {provider.label}

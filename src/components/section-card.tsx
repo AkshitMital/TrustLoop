@@ -24,16 +24,16 @@ export function SectionCard({
         busy ? 'panel-busy' : ''
       } ${className}`}
     >
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
+      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           {eyebrow ? (
             <p className="mb-1 text-[11px] uppercase tracking-[0.32em] text-slate-400">
               {eyebrow}
             </p>
           ) : null}
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <h2 className="break-words text-lg font-semibold leading-tight text-white">{title}</h2>
         </div>
-        {aside}
+        {aside ? <div className="w-full lg:w-auto lg:flex-none">{aside}</div> : null}
       </div>
       <div className={contentClassName}>{children}</div>
     </section>

@@ -1,4 +1,4 @@
-import type { PassFail, RunStatus } from '../../shared/pipeline'
+import type { PassFail, RunStatus, SourceType } from '../../shared/pipeline'
 
 const timeFormatter = new Intl.DateTimeFormat('en', {
   dateStyle: 'medium',
@@ -9,12 +9,24 @@ export function formatTimestamp(timestamp: number) {
   return timeFormatter.format(timestamp)
 }
 
+function toTitleCaseWords(value: string) {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ')
+}
+
 export function humanizeStatus(status: RunStatus) {
-  return status.replaceAll('_', ' ')
+  return toTitleCaseWords(status.replaceAll('_', ' '))
 }
 
 export function humanizePassFail(passFail: PassFail) {
-  return passFail === 'pending' ? 'in progress' : passFail
+  return passFail === 'pending' ? 'In Progress' : toTitleCaseWords(passFail)
+}
+
+export function humanizeSourceType(sourceType: SourceType) {
+  return toTitleCaseWords(sourceType)
 }
 
 export function formatDelta(current?: number | null, previous?: number | null) {

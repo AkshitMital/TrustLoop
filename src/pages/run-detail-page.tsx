@@ -12,7 +12,13 @@ import { ScorePill } from '../components/score-pill'
 import { SectionCard } from '../components/section-card'
 import { StageFeed } from '../components/stage-feed'
 import { StatusBadge } from '../components/status-badge'
-import { formatDelta, formatTimestamp, humanizeStatus, truncate } from '../lib/format'
+import {
+  formatDelta,
+  formatTimestamp,
+  humanizeSourceType,
+  humanizeStatus,
+  truncate,
+} from '../lib/format'
 import type { AttackCaseDoc, FailureDoc, RunDetail } from '../types/app'
 
 function groupAttackCasesByVersion(attackCases: AttackCaseDoc[]) {
@@ -65,8 +71,8 @@ function describeAttackFocus(status: RunDetail['run']['status'], versionNumber: 
 
 function metricTileClass(isBusy: boolean) {
   return isBusy
-    ? 'rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.08] p-4 shadow-[0_0_24px_rgba(91,208,255,0.10)]'
-    : 'rounded-2xl bg-white/[0.04] p-4'
+    ? 'min-w-0 rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.08] p-4 shadow-[0_0_24px_rgba(91,208,255,0.10)]'
+    : 'min-w-0 rounded-2xl bg-white/[0.04] p-4'
 }
 
 export function RunDetailPage() {
@@ -164,17 +170,19 @@ export function RunDetailPage() {
         eyebrow="Run detail"
         busy={runIsLive}
         aside={
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-col md:items-end">
             <StatusBadge status={detail.run.status} passFail={detail.run.passFail} />
             <ProviderBadge provider={detail.provider} />
           </div>
         }
       >
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:items-stretch">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 min-[1900px]:grid-cols-6">
             <div className={metricTileClass(false)}>
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Source</p>
-              <p className="mt-2 text-sm text-slate-300">{detail.run.sourceType}</p>
+              <p className="mt-2 break-words text-sm text-slate-300">
+                {humanizeSourceType(detail.run.sourceType)}
+              </p>
             </div>
             <div className={metricTileClass(detail.run.passFail !== 'pending')}>
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">
@@ -190,7 +198,9 @@ export function RunDetailPage() {
             </div>
             <div className={metricTileClass(false)}>
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Updated</p>
-              <p className="mt-2 text-sm text-slate-300">{formatTimestamp(detail.run.updatedAt)}</p>
+              <p className="mt-2 break-words text-sm leading-6 text-slate-300">
+                {formatTimestamp(detail.run.updatedAt)}
+              </p>
             </div>
             <div className={metricTileClass(runIsLive)}>
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Delta</p>
@@ -198,8 +208,12 @@ export function RunDetailPage() {
             </div>
             <div className={metricTileClass(runIsLive)}>
               <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Provider</p>
-              <p className="mt-2 text-sm font-medium text-white">{detail.provider.label}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">{detail.provider.detail}</p>
+              <p className="mt-2 break-words text-sm font-medium text-white">
+                {detail.provider.label}
+              </p>
+              <p className="mt-1 break-words text-xs leading-5 text-slate-400">
+                {detail.provider.detail}
+              </p>
             </div>
           </div>
           <ScorePill
@@ -215,6 +229,7 @@ export function RunDetailPage() {
             }
             emphasize
             busy={runIsLive}
+            className="w-full xl:h-full"
           />
         </div>
         {showingBestVersion ? (

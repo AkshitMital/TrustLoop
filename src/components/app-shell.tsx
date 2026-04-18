@@ -3,15 +3,15 @@ import { Link, useLocation } from 'react-router-dom'
 
 function NavLink({ to, label }: { to: string; label: string }) {
   const location = useLocation()
-  const active = location.pathname === to
+  const active = location.pathname === to || (to === '/' && location.pathname === '/')
 
   return (
     <Link
       to={to}
-      className={`nav-pill rounded-2xl px-4 py-3 text-sm font-medium transition ${
+      className={`rounded-2xl px-4 py-2.5 text-sm font-medium transition ${
         active
-          ? 'bg-white/12 text-white ring-1 ring-cyan-300/18 shadow-[0_10px_24px_rgba(0,0,0,0.18)]'
-          : 'text-slate-300 hover:bg-white/8 hover:text-white'
+          ? 'bg-gradient-to-r from-[var(--accent)] to-[#ffb066] text-slate-900'
+          : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
       }`}
     >
       {label}
@@ -23,38 +23,29 @@ export function AppShell({ children }: PropsWithChildren) {
   const location = useLocation()
 
   return (
-    <div className="app-frame min-h-screen px-4 py-5 sm:px-6">
-      <div className="app-backdrop" />
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="glass-strong overflow-hidden rounded-[2rem] p-6 shadow-2xl shadow-black/25">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="mb-3 inline-flex rounded-full bg-cyan-500/12 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-cyan-100 ring-1 ring-cyan-400/20">
-                AI Trust Cockpit
-              </p>
-              <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">
-                Generate, attack, score, repair, and show the trust delta.
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                This MVP is built around one visible moment: version 1 fails, the Red Team
-                proves why, Maker patches it, and the score climbs.
-              </p>
-            </div>
-            <div className="glass nav-panel w-full max-w-sm rounded-[1.75rem] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
-              <p className="text-sm font-semibold text-white">Control Deck</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Move between the run list and launch surface without losing the live
-                trust-loop context.
-              </p>
-              <nav className="mt-4 grid grid-cols-2 gap-3">
-                <NavLink to="/" label="Dashboard" />
-                <NavLink to="/runs/new" label="New Run" />
-              </nav>
+    <div className="min-h-screen px-4 py-5 sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        <header className="flex items-center justify-between gap-4 rounded-3xl border border-white/8 bg-white/[0.02] px-5 py-4 backdrop-blur-xl">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-500 shadow-lg shadow-cyan-400/25">
+                <svg className="h-5 w-5 text-slate-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight text-white">TrustLoop</h1>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">AI Trust Platform</p>
+              </div>
             </div>
           </div>
+          <nav className="flex items-center gap-1">
+            <NavLink to="/" label="Dashboard" />
+            <NavLink to="/runs/new" label="New Run" />
+          </nav>
         </header>
 
-        <main key={location.pathname} className="page-enter">
+        <main key={location.pathname} className="animate-fade-in">
           {children}
         </main>
       </div>

@@ -29,7 +29,9 @@ export function StatusBadge({ status, passFail }: StatusBadgeProps) {
   if (passFail && passFail !== 'pending') {
     const colors = passFailColors[passFail]
     return (
-      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${colors.bg} ${colors.text}`}>
+      <span
+        className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${colors.bg} ${colors.text}`}
+      >
         <span className={`h-1.5 w-1.5 rounded-full ${colors.dot} animate-pulse`} />
         {humanizePassFail(passFail)}
       </span>
@@ -41,9 +43,11 @@ export function StatusBadge({ status, passFail }: StatusBadgeProps) {
   const isActive = status === 'awaiting_execution' || status === 'evaluating' || status === 'repairing' || status === 'generating'
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${colors.bg} ${colors.text}`}>
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${colors.bg} ${colors.text}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${colors.dot} ${isActive ? 'animate-pulse' : ''}`} />
-      {status ? humanizeStatus(status) : 'pending'}
+      {status ? humanizeStatus(status) : 'Pending'}
     </span>
   )
 }

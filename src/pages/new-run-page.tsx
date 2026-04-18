@@ -5,6 +5,7 @@ import { InlineSpinner } from '../components/inline-spinner'
 import { SectionCard } from '../components/section-card'
 import { IntensityControl } from '../components/intensity-control'
 import { useRunLauncher } from '../hooks/use-run-launcher'
+import { humanizeSourceType } from '../lib/format'
 
 export function NewRunPage() {
   const { launchRun, isLaunching } = useRunLauncher()
@@ -63,7 +64,7 @@ export function NewRunPage() {
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
                   } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
-                  {value}
+                  {humanizeSourceType(value)}
                 </button>
               )
             })}
@@ -88,7 +89,7 @@ export function NewRunPage() {
             </div>
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-white">
-                {sourceType === 'prompt' ? 'Prompt' : 'Code'}
+                {humanizeSourceType(sourceType)}
               </span>
               <textarea
                 value={sourceText}
