@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getUnsupportedGitHubFileReason,
+  normalizeGitHubBranchRef,
   parseGitHubCommitUrl,
   parseGitHubFileUrl,
   parseGitHubPullRequestUrl,
@@ -64,5 +65,10 @@ describe('GitHub source helpers', () => {
     expect(getUnsupportedGitHubFileReason('README.md')).toContain(
       'JavaScript and TypeScript source files',
     )
+  })
+
+  it('normalizes branch refs for tracked webhook sync', () => {
+    expect(normalizeGitHubBranchRef('refs/heads/main')).toBe('main')
+    expect(normalizeGitHubBranchRef('feature/trustloop')).toBe('feature/trustloop')
   })
 })

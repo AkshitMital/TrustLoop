@@ -10,6 +10,7 @@
 
 import type * as execution from "../execution.js";
 import type * as github from "../github.js";
+import type * as http from "../http.js";
 import type * as openai from "../openai.js";
 import type * as orchestrator from "../orchestrator.js";
 import type * as runs from "../runs.js";
@@ -23,6 +24,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   execution: typeof execution;
   github: typeof github;
+  http: typeof http;
   openai: typeof openai;
   orchestrator: typeof orchestrator;
   runs: typeof runs;

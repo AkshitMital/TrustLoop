@@ -22,6 +22,7 @@ interface DashboardBatchLaunchState {
     runIds: string[]
     sourceType?: string
     repoLabel?: string
+    contextMessage?: string
   }
 }
 
@@ -338,6 +339,11 @@ export function DashboardPage() {
               {batchLaunch.count === 1 ? '' : 's'}
               {batchLaunch.repoLabel ? ` from ${batchLaunch.repoLabel}` : ''}. The newest
               runs are listed below.
+              {batchLaunch.contextMessage ? (
+                <span className="mt-2 block text-cyan-100/85">
+                  {batchLaunch.contextMessage}
+                </span>
+              ) : null}
             </div>
           ) : null}
           <div className="space-y-4">

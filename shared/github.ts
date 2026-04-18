@@ -1,4 +1,12 @@
-export type GitHubSourceKind = 'pr_url' | 'file_url' | 'branch_diff' | 'commit'
+import type { Id } from '../convex/_generated/dataModel'
+
+export type GitHubSourceKind =
+  | 'pr_url'
+  | 'file_url'
+  | 'branch_diff'
+  | 'commit'
+  | 'repo_branch'
+  | 'push_sync'
 
 export type GitHubChangeStatus =
   | 'added'
@@ -9,12 +17,17 @@ export type GitHubChangeStatus =
   | 'changed'
   | 'unchanged'
 
+export type GitHubConnectionStatus = 'active' | 'syncing' | 'error'
+export type GitHubWebhookStatus = 'active' | 'error' | 'missing'
+
 export interface GitHubRunContext {
   owner: string
   repo: string
   filePath: string
   sourceKind: GitHubSourceKind
   htmlUrl: string
+  connectionId?: Id<'repoConnections'>
+  branch?: string
   prNumber?: number
   commitSha?: string
   baseRef?: string
@@ -32,7 +45,7 @@ export interface GitHubRepoSummary {
   defaultBranch?: string
 }
 
-export interface GitHubCandidateFile extends GitHubRunContext {
+export interface GitHubTrackedCandidate extends GitHubRunContext {
   content: string
   resolvedRef: string
   summary: string
@@ -44,28 +57,42 @@ export interface GitHubSkippedFile {
   htmlUrl?: string
 }
 
-export interface GitHubPreviewResult {
+export interface GitHubConnectRepoRequest {
+  token: string
+  owner: string
+  repo: string
+  branch: string
+  webhookUrl: string
+}
+
+export interface GitHubConnectRepoResult {
+  connectionId: Id<'repoConnections'>
   repo: GitHubRepoSummary
-  sourceKind: GitHubSourceKind
+  branch: string
+  syncedSha: string
   summary: string
-  candidates: GitHubCandidateFile[]
+  createdRuns: number
+  runIds: Id<'runs'>[]
   skipped: GitHubSkippedFile[]
+  webhookStatus: GitHubWebhookStatus
+  webhookMessage: string
 }
 
-export interface GitHubPreviewResponse extends GitHubPreviewResult {
-  suggestedSelection: string[]
-}
-
-export interface GitHubPreviewRequest {
-  token?: string
-  sourceKind: GitHubSourceKind
-  prUrl?: string
-  fileUrl?: string
-  owner?: string
-  repo?: string
-  baseRef?: string
-  headRef?: string
-  commitSha?: string
+export interface GitHubConnectionSummary {
+  _id: Id<'repoConnections'>
+  owner: string
+  repo: string
+  branch: string
+  htmlUrl: string
+  status: GitHubConnectionStatus
+  webhookStatus: GitHubWebhookStatus
+  webhookMessage?: string
+  lastProcessedCommitSha?: string
+  lastSyncAt?: number
+  lastWebhookAt?: number
+  lastError?: string
+  createdAt: number
+  updatedAt: number
 }
 
 export interface ParsedGitHubRepoRef {
@@ -118,6 +145,14 @@ export function parseOwnerRepo(owner?: string, repo?: string): ParsedGitHubRepoR
     owner: normalizedOwner,
     repo: normalizedRepo,
   }
+}
+
+export function normalizeGitHubBranchRef(ref?: string | null) {
+  if (!ref) {
+    return ''
+  }
+
+  return ref.replace(/^refs\/heads\//, '').trim()
 }
 
 export function parseGitHubPullRequestUrl(url: string): ParsedGitHubPullRequestUrl {
@@ -220,22 +255,7 @@ export function parseGitHubFileUrl(
 }
 
 export function isSupportedGitHubSourcePath(path: string) {
-  const normalized = path.trim().toLowerCase()
-
-  if (!SUPPORTED_GITHUB_EXTENSIONS.some((extension) => normalized.endsWith(extension))) {
-    return false
-  }
-
-  return (
-    !normalized.endsWith('.d.ts') &&
-    !/\.test\.[^.]+$/.test(normalized) &&
-    !/\.spec\.[^.]+$/.test(normalized) &&
-    !/\.min\.[^.]+$/.test(normalized) &&
-    !/(^|\/)(dist|build|coverage|docs|__snapshots__)\//.test(normalized) &&
-    !/(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb|tsconfig\.json|vite\.config\.)/.test(
-      normalized,
-    )
-  )
+  return getUnsupportedGitHubFileReason(path) == null
 }
 
 export function getUnsupportedGitHubFileReason(path: string) {
@@ -268,8 +288,8 @@ export function getUnsupportedGitHubFileReason(path: string) {
 }
 
 export function compareGitHubCandidatesByPatchSize(
-  left: Pick<GitHubCandidateFile, 'additions' | 'deletions' | 'filePath'>,
-  right: Pick<GitHubCandidateFile, 'additions' | 'deletions' | 'filePath'>,
+  left: Pick<GitHubTrackedCandidate, 'additions' | 'deletions' | 'filePath'>,
+  right: Pick<GitHubTrackedCandidate, 'additions' | 'deletions' | 'filePath'>,
 ) {
   const leftSize = (left.additions ?? 0) + (left.deletions ?? 0)
   const rightSize = (right.additions ?? 0) + (right.deletions ?? 0)
@@ -285,9 +305,17 @@ export function buildGitHubRunTitle(context: GitHubRunContext) {
   return `${context.owner}/${context.repo} · ${basename(context.filePath)}`
 }
 
-export function summarizeGitHubCandidate(context: Pick<GitHubRunContext, 'changeStatus' | 'additions' | 'deletions'>) {
+export function summarizeGitHubCandidate(
+  context: Pick<GitHubRunContext, 'sourceKind' | 'changeStatus' | 'additions' | 'deletions'>,
+) {
   const pieces: string[] = []
 
+  if (context.sourceKind === 'repo_branch') {
+    pieces.push('Baseline scan')
+  }
+  if (context.sourceKind === 'push_sync') {
+    pieces.push('Triggered from push webhook')
+  }
   if (context.changeStatus) {
     pieces.push(context.changeStatus.charAt(0).toUpperCase() + context.changeStatus.slice(1))
   }
@@ -298,15 +326,6 @@ export function summarizeGitHubCandidate(context: Pick<GitHubRunContext, 'change
   return pieces.join(' · ') || 'GitHub source file'
 }
 
-export function humanizeGitHubSourceKind(sourceKind: GitHubSourceKind) {
-  switch (sourceKind) {
-    case 'pr_url':
-      return 'PR URL'
-    case 'file_url':
-      return 'File URL'
-    case 'branch_diff':
-      return 'Branch Diff'
-    case 'commit':
-      return 'Commit SHA'
-  }
+export function buildGitHubRepoKey(context: Pick<GitHubRunContext, 'owner' | 'repo'>) {
+  return `${context.owner}/${context.repo}`
 }

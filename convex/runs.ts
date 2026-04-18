@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import { internal } from './_generated/api.js'
 import {
   internalMutation,
   internalQuery,
@@ -20,6 +21,8 @@ const githubSourceKindValidator = v.union(
   v.literal('file_url'),
   v.literal('branch_diff'),
   v.literal('commit'),
+  v.literal('repo_branch'),
+  v.literal('push_sync'),
 )
 
 const githubChangeStatusValidator = v.union(
@@ -38,6 +41,8 @@ const githubContextValidator = v.object({
   filePath: v.string(),
   sourceKind: githubSourceKindValidator,
   htmlUrl: v.string(),
+  connectionId: v.optional(v.id('repoConnections')),
+  branch: v.optional(v.string()),
   prNumber: v.optional(v.number()),
   commitSha: v.optional(v.string()),
   baseRef: v.optional(v.string()),
@@ -132,7 +137,13 @@ function defaultTitle(
     owner: string
     repo: string
     filePath: string
-    sourceKind: 'pr_url' | 'file_url' | 'branch_diff' | 'commit'
+    sourceKind:
+      | 'pr_url'
+      | 'file_url'
+      | 'branch_diff'
+      | 'commit'
+      | 'repo_branch'
+      | 'push_sync'
     htmlUrl: string
   } | null,
 ) {
@@ -485,6 +496,30 @@ export const appendEvent = internalMutation({
   },
 })
 
+export const enqueueBootstrap = internalMutation({
+  args: {
+    runId: v.id('runs'),
+    title: v.string(),
+    detail: v.string(),
+    source: v.optional(eventSourceValidator),
+  },
+  handler: async (ctx, args) => {
+    await ctx.scheduler.runAfter(0, internal.orchestrator.bootstrapRunInternal, {
+      runId: args.runId,
+    })
+
+    await ctx.db.insert('runEvents', {
+      runId: args.runId,
+      stage: 'queued',
+      source: args.source ?? 'system',
+      title: args.title,
+      detail: args.detail,
+      severity: 'info',
+      createdAt: Date.now(),
+    })
+  },
+})
+
 export const seedVersionArtifacts = internalMutation({
   args: {
     runId: v.id('runs'),
@@ -686,5 +721,50 @@ export const completeRun = internalMutation({
       currentVersionNumber: args.currentVersionNumber,
       updatedAt: Date.now(),
     })
+  },
+})
+
+export const clearAllData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const repoConnections = await ctx.db.query('repoConnections').collect()
+    const runs = await ctx.db.query('runs').collect()
+    const runVersions = await ctx.db.query('runVersions').collect()
+    const attackCases = await ctx.db.query('attackCases').collect()
+    const evalResults = await ctx.db.query('evalResults').collect()
+    const fixSuggestions = await ctx.db.query('fixSuggestions').collect()
+    const runEvents = await ctx.db.query('runEvents').collect()
+
+    for (const doc of attackCases) {
+      await ctx.db.delete(doc._id)
+    }
+    for (const doc of evalResults) {
+      await ctx.db.delete(doc._id)
+    }
+    for (const doc of fixSuggestions) {
+      await ctx.db.delete(doc._id)
+    }
+    for (const doc of runEvents) {
+      await ctx.db.delete(doc._id)
+    }
+    for (const doc of runVersions) {
+      await ctx.db.delete(doc._id)
+    }
+    for (const doc of runs) {
+      await ctx.db.delete(doc._id)
+    }
+    for (const doc of repoConnections) {
+      await ctx.db.delete(doc._id)
+    }
+
+    return {
+      repoConnections: repoConnections.length,
+      runs: runs.length,
+      runVersions: runVersions.length,
+      attackCases: attackCases.length,
+      evalResults: evalResults.length,
+      fixSuggestions: fixSuggestions.length,
+      runEvents: runEvents.length,
+    }
   },
 })

@@ -49,6 +49,10 @@ export function humanizeGitHubSourceKind(sourceKind: GitHubSourceKind) {
       return 'Branch Diff'
     case 'commit':
       return 'Commit SHA'
+    case 'repo_branch':
+      return 'Repo Baseline'
+    case 'push_sync':
+      return 'Push Sync'
   }
 }
 
@@ -61,6 +65,21 @@ export function formatGitHubRepoLabel(context: Pick<GitHubRunContext, 'owner' | 
 }
 
 export function formatGitHubRefLabel(context: GitHubRunContext) {
+  if (context.sourceKind === 'push_sync') {
+    const branch = context.branch ?? context.headRef
+    if (branch && context.commitSha) {
+      return `${branch} · ${context.commitSha.slice(0, 7)}`
+    }
+    if (branch) {
+      return branch
+    }
+  }
+  if (context.sourceKind === 'repo_branch') {
+    const branch = context.branch ?? context.headRef
+    if (branch) {
+      return `Branch ${branch}`
+    }
+  }
   if (context.prNumber != null) {
     return `PR #${context.prNumber}`
   }
@@ -69,6 +88,9 @@ export function formatGitHubRefLabel(context: GitHubRunContext) {
   }
   if (context.baseRef && context.headRef) {
     return `${context.baseRef}...${context.headRef}`
+  }
+  if (context.branch) {
+    return `Branch ${context.branch}`
   }
   if (context.headRef) {
     return context.headRef
@@ -84,6 +106,12 @@ export function formatGitHubPathLabel(context: Pick<GitHubRunContext, 'filePath'
 export function formatGitHubFileStats(context: GitHubRunContext) {
   const parts: string[] = []
 
+  if (context.sourceKind === 'repo_branch') {
+    parts.push('Baseline scan')
+  }
+  if (context.sourceKind === 'push_sync') {
+    parts.push('Push sync')
+  }
   if (context.changeStatus) {
     parts.push(humanizeGitHubChangeStatus(context.changeStatus))
   }

@@ -2,7 +2,11 @@
 
 import { v } from 'convex/values'
 import { internal } from './_generated/api.js'
-import { action, internalAction, type ActionCtx } from './_generated/server.js'
+import {
+  action,
+  internalAction,
+  type ActionCtx,
+} from './_generated/server.js'
 import type { Id } from './_generated/dataModel.js'
 import {
   MAX_VERSION_NUMBER,
@@ -73,8 +77,10 @@ type ProcessExecutionResult =
       status: 'completed'
       versionNumber: number
       overallScore: number
-      passFail: 'pass' | 'fail'
-    }
+    passFail: 'pass' | 'fail'
+  }
+
+type BootstrapRunCtx = Pick<ActionCtx, 'runQuery' | 'runMutation' | 'scheduler'>
 
 function normalizeCodeFingerprint(code: string) {
   return code.replace(/\s+/g, ' ').trim()
@@ -85,7 +91,7 @@ function codesAreEquivalent(left: string, right: string) {
 }
 
 async function queueVersionExecution(
-  ctx: ActionCtx,
+  ctx: BootstrapRunCtx,
   runId: Id<'runs'>,
   versionNumber: number,
 ) {
@@ -531,11 +537,12 @@ async function processExecutionResult(
   }
 }
 
-export const bootstrapRun = action({
+async function bootstrapRunHandler(
+  ctx: BootstrapRunCtx,
   args: {
-    runId: v.id('runs'),
+    runId: Id<'runs'>
   },
-  handler: async (ctx, args): Promise<BootstrapRunResult> => {
+): Promise<BootstrapRunResult> {
     const run = await ctx.runQuery(internal.runs.getRunForBootstrap, {
       runId: args.runId,
     })
@@ -689,12 +696,12 @@ export const bootstrapRun = action({
         debugData: JSON.stringify(
           {
             reason: fallbackReason,
-        },
-        null,
-        2,
-      ),
-      severity: 'warning',
-    })
+          },
+          null,
+          2,
+        ),
+        severity: 'warning',
+      })
     }
 
     if (redTeamFallbackReason) {
@@ -797,7 +804,20 @@ export const bootstrapRun = action({
       versionNumber: 1,
       caseCount: draft.cases.length,
     }
+}
+
+export const bootstrapRun = action({
+  args: {
+    runId: v.id('runs'),
   },
+  handler: bootstrapRunHandler,
+})
+
+export const bootstrapRunInternal = internalAction({
+  args: {
+    runId: v.id('runs'),
+  },
+  handler: bootstrapRunHandler,
 })
 
 export const processExecution = action({

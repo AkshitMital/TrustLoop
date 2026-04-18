@@ -13,6 +13,8 @@ const githubSourceKind = v.union(
   v.literal('file_url'),
   v.literal('branch_diff'),
   v.literal('commit'),
+  v.literal('repo_branch'),
+  v.literal('push_sync'),
 )
 
 const githubChangeStatus = v.union(
@@ -31,6 +33,8 @@ const githubContext = v.object({
   filePath: v.string(),
   sourceKind: githubSourceKind,
   htmlUrl: v.string(),
+  connectionId: v.optional(v.id('repoConnections')),
+  branch: v.optional(v.string()),
   prNumber: v.optional(v.number()),
   commitSha: v.optional(v.string()),
   baseRef: v.optional(v.string()),
@@ -123,7 +127,41 @@ const eventSource = v.union(
   v.literal('system'),
 )
 
+const repoConnectionStatus = v.union(
+  v.literal('active'),
+  v.literal('syncing'),
+  v.literal('error'),
+)
+
+const webhookStatus = v.union(
+  v.literal('active'),
+  v.literal('error'),
+  v.literal('missing'),
+)
+
 export default defineSchema({
+  repoConnections: defineTable({
+    owner: v.string(),
+    repo: v.string(),
+    branch: v.string(),
+    htmlUrl: v.string(),
+    token: v.string(),
+    webhookSecret: v.string(),
+    webhookUrl: v.string(),
+    webhookId: v.optional(v.number()),
+    webhookStatus,
+    webhookMessage: v.optional(v.string()),
+    status: repoConnectionStatus,
+    lastProcessedCommitSha: v.optional(v.string()),
+    lastSyncAt: v.optional(v.number()),
+    lastWebhookAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_and_repo_and_branch', ['owner', 'repo', 'branch'])
+    .index('by_updatedAt', ['updatedAt']),
+
   runs: defineTable({
     title: v.string(),
     sourceType,

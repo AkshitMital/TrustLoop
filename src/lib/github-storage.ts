@@ -1,20 +1,14 @@
-import type { GitHubSourceKind } from '../../shared/github'
-
 export interface RecentGitHubRepo {
   owner: string
   repo: string
+  branch: string
 }
 
 export interface StoredGitHubDraft {
   token: string
   owner: string
   repo: string
-  sourceKind: GitHubSourceKind
-  prUrl: string
-  fileUrl: string
-  baseRef: string
-  headRef: string
-  commitSha: string
+  branch: string
 }
 
 const GITHUB_DRAFT_KEY = 'trustloop.githubDraft'
@@ -24,12 +18,7 @@ const defaultDraft: StoredGitHubDraft = {
   token: '',
   owner: '',
   repo: '',
-  sourceKind: 'pr_url',
-  prUrl: '',
-  fileUrl: '',
-  baseRef: 'main',
-  headRef: '',
-  commitSha: '',
+  branch: 'main',
 }
 
 function canUseStorage() {
@@ -80,14 +69,21 @@ export function loadRecentGitHubRepos() {
     return [] as RecentGitHubRepo[]
   }
 
-  return stored.filter((repo) => repo.owner?.trim() && repo.repo?.trim())
+  return stored.filter(
+    (repo) => repo.owner?.trim() && repo.repo?.trim() && repo.branch?.trim(),
+  )
 }
 
 export function rememberRecentGitHubRepo(repo: RecentGitHubRepo) {
   const next = [
     repo,
     ...loadRecentGitHubRepos().filter(
-      (entry) => !(entry.owner === repo.owner && entry.repo === repo.repo),
+      (entry) =>
+        !(
+          entry.owner === repo.owner &&
+          entry.repo === repo.repo &&
+          entry.branch === repo.branch
+        ),
     ),
   ].slice(0, 4)
 
