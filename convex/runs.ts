@@ -95,6 +95,8 @@ const attackCaseArg = v.object({
     v.literal('no_throw'),
     v.literal('max_length'),
     v.literal('stable_repeat'),
+    v.literal('subset'),
+    v.literal('includes_all'),
   ),
   expectedValue: v.optional(v.any()),
   maxDurationMs: v.optional(v.number()),

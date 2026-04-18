@@ -3,6 +3,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import {
   buildInitialArtifacts,
   buildPatchedArtifacts,
+  inferScenarioFromText,
   pickBestEvaluation,
   scoreExecution,
   type ExecutionReport,
@@ -44,6 +45,14 @@ describe('shared trust pipeline helpers', () => {
     expect(patch.changeSummary).toContain('null and type guards')
   })
 
+  it('detects merge-preferences utilities instead of routing them into array math', () => {
+    expect(
+      inferScenarioFromText(
+        'mergeUserPreferences.js\nexport function mergeUserPreferences(input) { return { ...input.defaults, ...input.incoming } }',
+      ),
+    ).toBe('merge_preferences')
+  })
+
   it('bootstraps github runs from fetched file contents instead of generating new code', () => {
     const artifacts = buildInitialArtifacts({
       sourceType: 'github',
@@ -53,6 +62,21 @@ describe('shared trust pipeline helpers', () => {
 
     expect(artifacts.code).toContain('export function sanitizeUserInput')
     expect(artifacts.changeSummary).toContain('User-supplied code')
+  })
+
+  it('bootstraps github merge-preferences runs with object attack cases', () => {
+    const artifacts = buildInitialArtifacts({
+      sourceType: 'github',
+      title: 'acme/preferences · mergeUserPreferences.js',
+      sourceText:
+        'export function mergeUserPreferences(input) { return { ...input.defaults, ...input.incoming } }',
+    })
+
+    expect(artifacts.scenario).toBe('merge_preferences')
+    expect(artifacts.cases[0]?.title).toContain('merge envelope')
+    expect(artifacts.cases.some((caseItem) => caseItem.assertionType === 'subset')).toBe(
+      true,
+    )
   })
 
   it('stages sanitize hardening across multiple repair versions', () => {
@@ -79,6 +103,31 @@ describe('shared trust pipeline helpers', () => {
     expect(stageThree.code).toContain('slice(0, 5000)')
     expect(stageThree.code).not.toContain('replace(/<script')
     expect(stageFour.code).toContain('replace(/<script')
+  })
+
+  it('stages merge-preferences hardening across repair versions', () => {
+    const stageTwo = buildPatchedArtifacts(
+      'merge_preferences',
+      'export function mergeUserPreferences(input) { return { ...input.defaults, ...input.incoming } }',
+      [],
+      2,
+    )
+    const stageThree = buildPatchedArtifacts(
+      'merge_preferences',
+      stageTwo.code,
+      [],
+      3,
+    )
+    const stageFour = buildPatchedArtifacts(
+      'merge_preferences',
+      stageThree.code,
+      [],
+      4,
+    )
+
+    expect(stageTwo.code).toContain('isRecord')
+    expect(stageThree.code).toContain('emailNotifications')
+    expect(stageFour.code).toContain('blockedKeys')
   })
 
   it('scores a clean executed report as passing', () => {

@@ -2,6 +2,7 @@
 
 import {
   MAX_VERSION_NUMBER,
+  defaultFunctionNameForScenario,
   ensureExported,
   inferScenarioFromText,
   type AssertionType,
@@ -41,6 +42,8 @@ const ASSERTION_TYPES: AssertionType[] = [
   "no_throw",
   "max_length",
   "stable_repeat",
+  "subset",
+  "includes_all",
 ];
 
 const SEVERITIES: Severity[] = ["low", "medium", "high"];
@@ -306,14 +309,30 @@ async function callStructuredOutput<T>(options: {
 
 function scenarioHint(sourceType: SourceType, title: string, sourceText: string) {
   const scenario = inferScenarioFromText(`${title}\n${sourceText}`);
-  const nameHint =
-    scenario === "sanitize" ? "sanitizeUserInput" : "addNumbers";
+  const nameHint = defaultFunctionNameForScenario(scenario);
 
   return {
     scenario,
     nameHint,
     sourceType,
   };
+}
+
+function describeScenarioContract(scenario: ScenarioKey) {
+  switch (scenario) {
+    case "sum":
+      return "An array-of-numbers reducer that should safely sum numeric items.";
+    case "merge_preferences":
+      return "A preference-merging utility that combines defaults, stored values, and incoming overrides from object bags.";
+    case "build_query":
+      return "A query-string builder that serializes object filters into a safe URL query string.";
+    case "normalize_checkout":
+      return "A checkout normalizer that cleans email, coupon, notes, and line-item data from an object payload.";
+    case "serialize_tags":
+      return "A tag serializer that turns a list of tags into a normalized comma-separated string.";
+    case "sanitize":
+      return "A string sanitizer/normalizer that trims, lowercases, bounds, and cleans user input.";
+  }
 }
 
 function repairFocusForVersion(scenario: ScenarioKey, targetVersionNumber: number) {
@@ -327,6 +346,46 @@ function repairFocusForVersion(scenario: ScenarioKey, targetVersionNumber: numbe
     return "Perform the final cleanup pass. Keep the reducer strict, readable, and stable under repeated calls and noisy values.";
   }
 
+  if (scenario === "merge_preferences") {
+    if (targetVersionNumber === 2) {
+      return "Fix missing and malformed preference bags first. Guard the object merge path and preserve valid defaults.";
+    }
+    if (targetVersionNumber === 3) {
+      return "Normalize the merged preference shape next. Clean booleans, locale values, and shortcut arrays without rewriting everything.";
+    }
+    return "Perform the final security pass. Block prototype-style keys while preserving the normalized merged preference output.";
+  }
+
+  if (scenario === "build_query") {
+    if (targetVersionNumber === 2) {
+      return "Fix malformed and empty query payload handling first. Guard non-object inputs and skip empty values.";
+    }
+    if (targetVersionNumber === 3) {
+      return "Fix encoding and array handling next. Use safe query serialization instead of raw string concatenation.";
+    }
+    return "Perform the final determinism pass. Sort keys and repeated values so repeated calls produce stable query strings.";
+  }
+
+  if (scenario === "normalize_checkout") {
+    if (targetVersionNumber === 2) {
+      return "Fix missing checkout payload handling first. Return a safe normalized shape instead of throwing.";
+    }
+    if (targetVersionNumber === 3) {
+      return "Normalize email, coupon, and item quantity fields next while filtering malformed line items.";
+    }
+    return "Perform the final safety pass. Clean free-text notes and keep large carts bounded and deterministic.";
+  }
+
+  if (scenario === "serialize_tags") {
+    if (targetVersionNumber === 2) {
+      return "Fix malformed tag-list handling first. Guard non-array inputs and keep the current output format simple.";
+    }
+    if (targetVersionNumber === 3) {
+      return "Normalize and deduplicate the tag values next. Trim whitespace and lowercase the final serialized tags.";
+    }
+    return "Perform the final safety pass. Strip raw script-like markup and bound oversized tag lists before returning the final string.";
+  }
+
   if (targetVersionNumber === 2) {
     return "Fix null, undefined, and non-string handling first. Keep the basic normalization path but do not solve every remaining issue yet.";
   }
@@ -334,6 +393,60 @@ function repairFocusForVersion(scenario: ScenarioKey, targetVersionNumber: numbe
     return "Fix oversized-input handling next. Bound the output length while preserving the earlier null/type protections.";
   }
   return "Perform the final security hardening pass. Remove raw script tags while preserving the earlier safety and length protections.";
+}
+
+function classifyInputShape(value: unknown): "undefined" | "array" | "object" | "string" | "primitive" {
+  if (value === undefined) {
+    return "undefined";
+  }
+  if (Array.isArray(value)) {
+    return "array";
+  }
+  if (value !== null && typeof value === "object") {
+    return "object";
+  }
+  if (typeof value === "string") {
+    return "string";
+  }
+  return "primitive";
+}
+
+function validateRedTeamCasesForScenario(
+  scenario: ScenarioKey,
+  cases: AttackCaseTemplate[],
+) {
+  const shapes = cases.map((caseItem) =>
+    caseItem.inputEnvelope.kind === "undefined"
+      ? "undefined"
+      : classifyInputShape(caseItem.inputEnvelope.value),
+  );
+  const count = (shape: ReturnType<typeof classifyInputShape>) =>
+    shapes.filter((candidate) => candidate === shape).length;
+
+  switch (scenario) {
+    case "sum":
+      if (count("array") < 4) {
+        throw new Error("OpenAI Red Team cases drifted away from array-based sum inputs.");
+      }
+      return;
+    case "merge_preferences":
+    case "build_query":
+    case "normalize_checkout":
+      if (count("object") < 4) {
+        throw new Error("OpenAI Red Team cases drifted away from object-based utility inputs.");
+      }
+      return;
+    case "serialize_tags":
+      if (count("array") + count("string") < 4) {
+        throw new Error("OpenAI Red Team cases drifted away from tag-list serialization inputs.");
+      }
+      return;
+    case "sanitize":
+      if (count("string") + count("undefined") < 4) {
+        throw new Error("OpenAI Red Team cases drifted away from string-sanitization inputs.");
+      }
+      return;
+  }
 }
 
 function parseArrayFillExpression(trimmed: string): unknown[] | null {
@@ -523,6 +636,7 @@ export async function generateMakerDraftWithOpenAI(input: RunSeedInput) {
       "Do not use imports, external packages, filesystem access, or network calls.",
       "Keep the code concise and readable.",
       "Prioritize core correctness, but do not over-harden every edge case in the first draft. Leave room for the evaluation loop to improve the code in later iterations.",
+      `Scenario contract: ${describeScenarioContract(hint.scenario)}`,
       `If the task looks like ${hint.scenario}, prefer the function name ${hint.nameHint}.`,
     ].join(" "),
     input: [
@@ -562,6 +676,8 @@ export async function generateRedTeamCasesWithOpenAI(input: {
       "Do not use JavaScript expressions such as .repeat() inside inputJson or expectedValueJson unless the literal would be impractically large.",
       "Do not duplicate cases.",
       "Prefer realistic correctness, robustness, security, and performance probes over toy examples.",
+      "Attack the code that is actually present. Never switch the function contract to a different problem shape such as array summing when the code looks like object merging or query building.",
+      `Scenario contract: ${describeScenarioContract(hint.scenario)}`,
       `The scenario hint is ${hint.scenario}.`,
     ].join(" "),
     input: [
@@ -574,9 +690,12 @@ export async function generateRedTeamCasesWithOpenAI(input: {
     ].join("\n\n"),
   });
 
+  const cases = normalizeRedTeamCases(response.data);
+  validateRedTeamCasesForScenario(hint.scenario, cases);
+
   return {
     summary: response.data.summary,
-    cases: normalizeRedTeamCases(response.data),
+    cases,
     model: response.model,
   };
 }
@@ -600,6 +719,7 @@ export async function generateMakerRepairWithOpenAI(input: {
       "Do not use imports, external packages, filesystem access, or network calls.",
       "Apply one scoped hardening pass only for this iteration. Do not rewrite the entire function unless the current code is fundamentally unusable.",
       `This is repair version ${input.targetVersionNumber} out of ${MAX_VERSION_NUMBER}.`,
+      `Scenario contract: ${describeScenarioContract(hint.scenario)}`,
       `Focus for this iteration: ${repairFocusForVersion(hint.scenario, input.targetVersionNumber)}`,
       `If the task looks like ${hint.scenario}, prefer the function name ${hint.nameHint}.`,
     ].join(" "),

@@ -86,6 +86,8 @@ const assertionType = v.union(
   v.literal('no_throw'),
   v.literal('max_length'),
   v.literal('stable_repeat'),
+  v.literal('subset'),
+  v.literal('includes_all'),
 )
 
 const inputEnvelope = v.union(

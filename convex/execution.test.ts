@@ -72,4 +72,118 @@ describe('backend evaluator', () => {
     expect(execution.summary.failed).toBe(0)
     expect(execution.summary.errors).toBe(0)
   })
+
+  it('supports subset assertions for object-shaped utilities', async () => {
+    const execution = await executeCodeInNode({
+      code: `export function mergeUserPreferences(input: any) {
+  const defaults = input?.defaults && typeof input.defaults === "object" ? input.defaults : {}
+  const stored = input?.stored && typeof input.stored === "object" ? input.stored : {}
+  const incoming = input?.incoming && typeof input.incoming === "object" ? input.incoming : {}
+
+  return {
+    ...defaults,
+    ...stored,
+    ...incoming,
+    theme: typeof (incoming.theme ?? stored.theme ?? defaults.theme) === "string"
+      ? String(incoming.theme ?? stored.theme ?? defaults.theme).trim().toLowerCase()
+      : "light",
+    emailNotifications:
+      typeof (incoming.emailNotifications ?? stored.emailNotifications ?? defaults.emailNotifications) === "boolean"
+        ? Boolean(incoming.emailNotifications ?? stored.emailNotifications ?? defaults.emailNotifications)
+        : true,
+    marketingEmails:
+      typeof (incoming.marketingEmails ?? stored.marketingEmails ?? defaults.marketingEmails) === "boolean"
+        ? Boolean(incoming.marketingEmails ?? stored.marketingEmails ?? defaults.marketingEmails)
+        : false,
+    locale: typeof (incoming.locale ?? stored.locale ?? defaults.locale) === "string"
+      ? String(incoming.locale ?? stored.locale ?? defaults.locale).trim().toLowerCase()
+      : "en",
+    shortcuts: Array.isArray(incoming.shortcuts ?? stored.shortcuts ?? defaults.shortcuts)
+      ? Array.from(new Set((incoming.shortcuts ?? stored.shortcuts ?? defaults.shortcuts).filter((item: unknown) => typeof item === "string")))
+      : [],
+  }
+}`,
+      attackCases: [
+        attackCase({
+          _id: attackCaseId('attack-subset'),
+          title: 'Stored values are overridden by incoming edits',
+          category: 'boundary_condition',
+          inputEnvelope: {
+            kind: 'json',
+            value: {
+              defaults: {
+                theme: 'light',
+                emailNotifications: true,
+                marketingEmails: false,
+                locale: 'en',
+                shortcuts: [],
+              },
+              stored: {
+                theme: 'dark',
+                marketingEmails: true,
+              },
+              incoming: {
+                locale: 'fr',
+                emailNotifications: false,
+              },
+            },
+          },
+          inputPreview: '{ defaults: { theme: "light" }, stored: { theme: "dark" }, incoming: { locale: "fr" } }',
+          expectedOutcome: 'Incoming edits win while earlier stored values remain intact.',
+          assertionType: 'subset',
+          expectedValue: {
+            theme: 'dark',
+            marketingEmails: true,
+            locale: 'fr',
+            emailNotifications: false,
+          },
+        }),
+      ],
+    })
+
+    expect(execution.mode).toBe('executed')
+    expect(execution.summary.failed).toBe(0)
+  })
+
+  it('supports includes-all assertions for query builders', async () => {
+    const execution = await executeCodeInNode({
+      code: `export function buildQueryString(input: any) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return ""
+  }
+
+  const params = new URLSearchParams()
+  for (const key of Object.keys(input).sort()) {
+    const value = input[key]
+    if (value === undefined || value === null || value === "" || value === false) {
+      continue
+    }
+    params.append(key, String(value).trim())
+  }
+  return params.toString()
+}`,
+      attackCases: [
+        attackCase({
+          _id: attackCaseId('attack-query'),
+          title: 'Scalar filters are serialized',
+          category: 'boundary_condition',
+          inputEnvelope: {
+            kind: 'json',
+            value: {
+              search: 'trustloop',
+              page: 2,
+              status: 'open',
+            },
+          },
+          inputPreview: '{ search: "trustloop", page: 2, status: "open" }',
+          expectedOutcome: 'Includes the expected scalar filters.',
+          assertionType: 'includes_all',
+          expectedValue: ['search=trustloop', 'page=2', 'status=open'],
+        }),
+      ],
+    })
+
+    expect(execution.mode).toBe('executed')
+    expect(execution.summary.failed).toBe(0)
+  })
 })

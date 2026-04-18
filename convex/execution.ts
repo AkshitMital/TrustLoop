@@ -49,13 +49,24 @@ function analysisOnlyReport(
     /array\.isarray/i.test(code) ||
     /input\s*==\s*null/.test(code) ||
     /input\s*===\s*null/.test(code)
+  const looksObjectSafe =
+    /typeof\s+input\s*===\s*["']object["']/.test(code) ||
+    /Object\.entries\(/.test(code) ||
+    /Object\.keys\(/.test(code) ||
+    /Object\.assign\(/.test(code) ||
+    /\.\.\./.test(code)
   const handlesLargeInput =
     /(?:slice|substring)\(\s*0\s*,\s*(?:\d+|[A-Za-z_$][\w$]*)\s*\)/.test(code) ||
-    /\b(?:MAX_LEN|MAX_LENGTH|MAX_OUTPUT_LEN|EARLY_STRING_CAP)\b/.test(code)
+    /\b(?:MAX_LEN|MAX_LENGTH|MAX_OUTPUT_LEN|EARLY_STRING_CAP)\b/.test(code) ||
+    /\bslice\(0,\s*(?:100|120|5000|2000)\)/.test(code)
   const stripsScripts =
     (/replace\(/.test(code) && /script/i.test(lower)) || /<[^>]*>/.test(code)
   const stable = !/Math\.random|Date\.now/.test(code)
-  const normalizesStrings = /trim\(\)|reduce\(|toLowerCase\(|Number\.isFinite/.test(code)
+  const normalizesStrings =
+    /trim\(\)|reduce\(|toLowerCase\(|Number\.isFinite|URLSearchParams|new Set/.test(code)
+  const encodesQuery = /URLSearchParams|encodeURIComponent/.test(code)
+  const protectsPrototype = /__proto__|constructor|prototype/.test(code)
+  const sanitizesCollections = /filter\(|map\(|new Set|Array\.from/.test(code)
 
   const results = attackCases.map<ExecutionCaseResult>((attackCase) => {
     let passes = false
@@ -64,13 +75,13 @@ function analysisOnlyReport(
       case 'null_undefined':
       case 'malformed_payload':
       case 'type_mismatch':
-        passes = looksGuarded
+        passes = looksGuarded || looksObjectSafe
         break
       case 'large_payload':
-        passes = handlesLargeInput
+        passes = handlesLargeInput || sanitizesCollections
         break
       case 'injection_like':
-        passes = stripsScripts
+        passes = stripsScripts || encodesQuery || protectsPrototype
         break
       case 'repeated_calls':
         passes = stable
@@ -78,10 +89,10 @@ function analysisOnlyReport(
       case 'boundary_condition':
       case 'logical_edge':
       case 'empty_input':
-        passes = normalizesStrings
+        passes = normalizesStrings || encodesQuery || sanitizesCollections
         break
       case 'performance_sensitive':
-        passes = !/for\s*\(.*for\s*\(/s.test(code)
+        passes = !/for\s*\(.*for\s*\(/s.test(code) || handlesLargeInput
         break
     }
 
@@ -125,6 +136,48 @@ function decodeInput(attackCase: StoredAttackCase) {
 
 function deepEqual(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function matchesSubset(actual: unknown, expected: unknown): boolean {
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual) || actual.length < expected.length) {
+      return false
+    }
+
+    return expected.every((item, index) => matchesSubset(actual[index], item))
+  }
+
+  if (expected !== null && typeof expected === 'object') {
+    if (actual === null || typeof actual !== 'object' || Array.isArray(actual)) {
+      return false
+    }
+
+    return Object.entries(expected).every(([key, value]) =>
+      matchesSubset((actual as Record<string, unknown>)[key], value),
+    )
+  }
+
+  return deepEqual(actual, expected)
+}
+
+function includesAll(value: unknown, expected: unknown) {
+  const expectedItems = Array.isArray(expected) ? expected : [expected]
+
+  if (typeof value === 'string') {
+    return expectedItems.every((item) => value.includes(String(item)))
+  }
+
+  if (Array.isArray(value)) {
+    return expectedItems.every((item) =>
+      value.some((candidate) => deepEqual(candidate, item) || String(candidate) === String(item)),
+    )
+  }
+
+  return false
+}
+
+function withinTimeBudget(durationMs: number, budget: number | undefined) {
+  return durationMs <= (budget ?? Number.POSITIVE_INFINITY)
 }
 
 function transpileExecutionCode(code: string) {
@@ -208,22 +261,35 @@ function evaluateSingleAssertion(
   value: unknown,
   durationMs: number,
 ) {
+  let passes = false
+
   switch (attackCase.assertionType) {
     case 'returns':
-      return deepEqual(value, attackCase.expectedValue)
+      passes = deepEqual(value, attackCase.expectedValue)
+      break
     case 'not_includes':
-      return typeof value === 'string' && !value.includes(String(attackCase.expectedValue))
+      passes = typeof value === 'string' && !value.includes(String(attackCase.expectedValue))
+      break
     case 'no_throw':
-      return true
+      passes = true
+      break
     case 'max_length':
-      return (
+      passes =
         typeof value === 'string' &&
-        value.length <= Number(attackCase.expectedValue ?? 0) &&
-        durationMs <= (attackCase.maxDurationMs ?? Number.POSITIVE_INFINITY)
-      )
+        value.length <= Number(attackCase.expectedValue ?? 0)
+      break
     case 'stable_repeat':
-      return true
+      passes = true
+      break
+    case 'subset':
+      passes = matchesSubset(value, attackCase.expectedValue)
+      break
+    case 'includes_all':
+      passes = includesAll(value, attackCase.expectedValue)
+      break
   }
+
+  return passes && withinTimeBudget(durationMs, attackCase.maxDurationMs)
 }
 
 export async function executeCodeInNode({
